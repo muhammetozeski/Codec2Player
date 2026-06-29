@@ -88,6 +88,12 @@ minimal-installed-size settings above.
 (`native/gen_cb.py`). The steps live in `native/build_jni.ps1`. (The Codec 2 source itself comes
 from upstream; this repo ships the prebuilt `.so`.)
 
+## 🌍 Translations
+
+The UI is fully localised. Strings live in `res/values/strings.xml` (English, default) and
+`res/values-tr/strings.xml` (Turkish). To add a language, copy `strings.xml` into
+`res/values-<lang>/` and translate the values — that's it. PRs welcome.
+
 ## 📜 License
 
 - Application source (the original code in this repo): **MIT** — see `LICENSE`.
