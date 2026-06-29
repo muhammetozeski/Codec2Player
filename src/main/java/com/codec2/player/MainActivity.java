@@ -42,7 +42,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     private LinearLayout root;
     private WaveformView wave;
     private GlowButton playBtn;
-    private TextView nowPlaying, elapsed, total;
+    private TextView nowPlaying, elapsed, total, listHeader;
     private ListView list;
     private Button shuffleBtn, repeatBtn;
     private Adapter adapter;
@@ -75,6 +75,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         nowPlaying = (TextView) findViewById(R.id.nowPlaying);
         elapsed = (TextView) findViewById(R.id.elapsed);
         total = (TextView) findViewById(R.id.total);
+        listHeader = (TextView) findViewById(R.id.listHeader);
         list = (ListView) findViewById(R.id.list);
         shuffleBtn = (Button) findViewById(R.id.shuffle);
         repeatBtn = (Button) findViewById(R.id.repeat);
@@ -92,7 +93,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         findViewById(R.id.prev).setOnClickListener(v -> { if (svc != null) svc.playIndex(svc.neighbor(-1)); });
         findViewById(R.id.next).setOnClickListener(v -> { if (svc != null) svc.playIndex(svc.neighbor(+1)); });
         shuffleBtn.setOnClickListener(v -> { if (svc != null) { svc.setShuffle(!svc.isShuffle()); refreshControls(); } });
-        repeatBtn.setOnClickListener(v -> { if (svc != null) { svc.setRepeat(!svc.isRepeat()); refreshControls(); } });
+        repeatBtn.setOnClickListener(v -> { if (svc != null) { svc.cycleRepeat(); refreshControls(); } });
         findViewById(R.id.addFiles).setOnClickListener(v -> pickFiles());
         findViewById(R.id.addFolder).setOnClickListener(v -> pickFolder());
         wave.setSeekListener(f -> { if (svc != null) svc.seekFraction(f); });
@@ -129,12 +130,13 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
 
     private void processPendingOpen() {
         if (svc == null || pendingOpen.isEmpty()) return;
-        int firstIndex = svc.getPlaylist().size();
         ArrayList<Item> items = new ArrayList<>();
         for (Uri u : pendingOpen) { persist(u); items.add(new Item(u.toString(), queryName(u))); }
+        String firstUri = items.isEmpty() ? null : items.get(0).uri;
         pendingOpen.clear();
         svc.addItems(items);
-        svc.playIndex(firstIndex);
+        int idx = svc.indexOfUri(firstUri);
+        if (idx >= 0) svc.playIndex(idx);
         toast(items.size() + " dosya açıldı");
     }
 
@@ -211,16 +213,35 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
 
     // ---------- Service.Callback ----------
 
-    @Override public void onTrackChanged(int index) { post(() -> { refreshNowPlaying(); loadWaveform(); adapter.notifyDataSetChanged(); }); }
-    @Override public void onStateChanged(boolean playing) { post(() -> playBtn.setPlaying(playing)); }
-    @Override public void onPlaylistChanged() { post(() -> { adapter.notifyDataSetChanged(); refreshNowPlaying(); }); }
+    @Override public void onTrackChanged(int index) { post(() -> { refreshNowPlaying(); loadWaveform(); adapter.notifyDataSetChanged(); updateListHeader(); }); }
+    @Override public void onStateChanged(boolean playing) {
+        post(() -> {
+            playBtn.setPlaying(playing);
+            if (playing) getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        });
+    }
+    @Override public void onPlaylistChanged() { post(() -> { adapter.notifyDataSetChanged(); refreshNowPlaying(); updateListHeader(); }); }
 
     private void refreshControls() {
         if (svc == null) return;
         shuffleBtn.setText("Karıştır: " + (svc.isShuffle() ? "Açık" : "Kapalı"));
-        repeatBtn.setText("Tekrar: " + (svc.isRepeat() ? "Açık" : "Kapalı"));
+        String[] rl = {"Kapalı", "Tümü", "Tekli"};
+        repeatBtn.setText("Tekrar: " + rl[svc.getRepeatMode()]);
         playBtn.setPlaying(svc.isPlaying());
         refreshNowPlaying();
+        updateListHeader();
+    }
+
+    private void updateListHeader() {
+        if (listHeader == null) return;
+        if (svc == null) { listHeader.setText("Çalma listesi"); return; }
+        ArrayList<Item> pl = svc.getPlaylist();
+        int known = 0;
+        for (Item it : pl) if (it.durSec > 0) known += it.durSec;
+        String t = "Çalma listesi   ·   " + pl.size() + " parça";
+        if (known > 0) t += "   ·   ~" + fmt(known);
+        listHeader.setText(t);
     }
 
     private void refreshNowPlaying() {

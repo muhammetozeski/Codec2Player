@@ -50,8 +50,10 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     private final LocalBinder binder = new LocalBinder();
     private final ArrayList<Item> playlist = new ArrayList<>();
     private int current = -1;
-    private boolean shuffle = false, repeat = false, repeatOne = false;
+    private boolean shuffle = false;
+    private int repeatMode = 0; // 0 kapalı, 1 tümü, 2 tekli
     private final Random rnd = new Random();
+    private android.content.BroadcastReceiver noisy;
     private PlayerEngine engine;
     private Callback cb;
     private boolean uiVisible = false;
@@ -65,13 +67,19 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         prefs = getSharedPreferences("c2player", MODE_PRIVATE);
         engine = new PlayerEngine(this);
         shuffle = prefs.getBoolean("shuffle", false);
-        repeat = prefs.getBoolean("repeat", false);
+        repeatMode = prefs.getInt("repeatMode", 0);
         loadPlaylist();
         createChannel();
         setupSession();
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
         wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "c2player:play");
         wake.setReferenceCounted(false);
+        // kulaklik/cikis cekilince otomatik duraklat
+        noisy = new android.content.BroadcastReceiver() {
+            @Override public void onReceive(Context c, Intent i) { pause(); }
+        };
+        registerReceiver(noisy, new android.content.IntentFilter(
+                android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY));
     }
 
     @Override public IBinder onBind(Intent i) { return binder; }
@@ -100,15 +108,21 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     public int totalSamples() { return engine.totalSamples(); }
     public int level() { return engine.level(); }
     public boolean isShuffle() { return shuffle; }
-    public boolean isRepeat() { return repeat; }
-    public boolean isRepeatOne() { return repeatOne; }
+    public int getRepeatMode() { return repeatMode; }
 
     public void setShuffle(boolean s) { shuffle = s; prefs.edit().putBoolean("shuffle", s).apply(); }
-    public void setRepeat(boolean r) { repeat = r; prefs.edit().putBoolean("repeat", r).apply(); }
-    public void setRepeatOne(boolean r) { repeatOne = r; }
+    public void cycleRepeat() { repeatMode = (repeatMode + 1) % 3; prefs.edit().putInt("repeatMode", repeatMode).apply(); }
+
+    public int indexOfUri(String uri) {
+        if (uri == null) return -1;
+        for (int i = 0; i < playlist.size(); i++) if (uri.equals(playlist.get(i).uri)) return i;
+        return -1;
+    }
 
     public void addItems(ArrayList<Item> items) {
-        playlist.addAll(items);
+        java.util.HashSet<String> have = new java.util.HashSet<>();
+        for (Item it : playlist) have.add(it.uri);
+        for (Item it : items) if (have.add(it.uri)) playlist.add(it);  // tekrarlari atla
         savePlaylist();
         if (cb != null) cb.onPlaylistChanged();
     }
@@ -206,8 +220,14 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
 
     @Override
     public void onCompleted() {
-        if (repeatOne) { engine.seekFraction(0f); engine.play(); }
-        else playIndex(neighbor(+1));
+        if (repeatMode == 2) { engine.seekFraction(0f); engine.play(); return; }
+        if (shuffle) { playIndex(rnd.nextInt(Math.max(1, playlist.size()))); return; }
+        int n = current + 1;
+        if (n >= playlist.size()) {
+            if (repeatMode == 1) n = 0;     // tumu: basa don
+            else { engine.pause(); return; } // kapali: liste sonunda dur
+        }
+        playIndex(n);
     }
 
     // ---------- bildirim / oturum ----------
@@ -348,6 +368,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     public void onDestroy() {
         super.onDestroy();
         releaseWake();
+        try { if (noisy != null) unregisterReceiver(noisy); } catch (Exception ignore) {}
         if (session != null) session.release();
         if (engine != null) engine.release();
     }
