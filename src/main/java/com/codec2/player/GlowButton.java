@@ -11,18 +11,19 @@ import android.graphics.Shader;
 import android.util.AttributeSet;
 import android.view.View;
 
-/** Daire seklinde, nabiz gibi isiyan oynat/duraklat butonu. Kutuphanesiz. */
+/** Daire seklinde, nabiz gibi isiyan oynat/duraklat butonu. Renk mavi<->pembe
+ *  arasinda HER iki yonde de yumusak gecer (REVERSE animasyon). Kutuphanesiz. */
 public class GlowButton extends View {
 
     private boolean playing = false;
-    private float pulse = 0f;       // 0..1
-    private int hue = 0;            // canli renk donusu
+    private float pulse = 0f;     // 0..1 isima nabzi
+    private float colorT = 0f;    // 0..1 renk gecisi (ping-pong, ani siçrama yok)
     private final Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint disc = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint icon = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
-    private ValueAnimator anim;
+    private ValueAnimator pulseAnim, colorAnim;
 
     public GlowButton(Context c, AttributeSet a) {
         super(c, a);
@@ -30,27 +31,44 @@ public class GlowButton extends View {
         ring.setStyle(Paint.Style.STROKE);
         ring.setColor(0x55FFFFFF);
         setClickable(true);
-        anim = ValueAnimator.ofFloat(0f, 1f);
-        anim.setDuration(1400);
-        anim.setRepeatCount(ValueAnimator.INFINITE);
-        anim.setRepeatMode(ValueAnimator.REVERSE);
-        anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override public void onAnimationUpdate(ValueAnimator a) {
-                pulse = (float) a.getAnimatedValue();
-                hue = (hue + 1) % 360;
+
+        pulseAnim = ValueAnimator.ofFloat(0f, 1f);
+        pulseAnim.setDuration(1400);
+        pulseAnim.setRepeatCount(ValueAnimator.INFINITE);
+        pulseAnim.setRepeatMode(ValueAnimator.REVERSE);
+        pulseAnim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override public void onAnimationUpdate(ValueAnimator v) {
+                pulse = (float) v.getAnimatedValue();
                 invalidate();
             }
         });
-        anim.start();
+        pulseAnim.start();
+
+        // Renk gecisi: REVERSE oldugu icin 1'e varinca 0'a YAVASCA geri doner (ani degil)
+        colorAnim = ValueAnimator.ofFloat(0f, 1f);
+        colorAnim.setDuration(4200);
+        colorAnim.setRepeatCount(ValueAnimator.INFINITE);
+        colorAnim.setRepeatMode(ValueAnimator.REVERSE);
+        colorAnim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override public void onAnimationUpdate(ValueAnimator v) {
+                colorT = (float) v.getAnimatedValue();
+            }
+        });
+        colorAnim.start();
     }
 
     public void setPlaying(boolean p) { playing = p; invalidate(); }
 
     private int accent() {
-        // oynatirken canli camgobegi-mor; duraklatinca daha sakin
-        float[] hsv = { (playing ? (200 + (hue % 120)) : 210) % 360, 0.65f, 1f };
-        return Color.HSVToColor(hsv);
+        // mavi (~205) <-> pembe/magenta (~325) arasi yumusak gidip gelir
+        float hue = 205f + 120f * smooth(colorT);
+        float sat = playing ? 0.62f : 0.42f;
+        float val = playing ? 1f : 0.85f;
+        return Color.HSVToColor(new float[]{ hue, sat, val });
     }
+
+    // kenarlarda yavaslayan yumusak egri (ease-in-out)
+    private static float smooth(float t) { return t * t * (3f - 2f * t); }
 
     @Override
     protected void onDraw(Canvas cv) {
@@ -59,7 +77,6 @@ public class GlowButton extends View {
         float r = base * 0.62f;
         int ac = accent();
 
-        // dis isima (pulse ile buyuyup parlar)
         float glowR = r * (1.35f + 0.35f * pulse);
         int a = (int) (110 + 90 * pulse);
         glow.setShader(new RadialGradient(cx, cy, glowR,
@@ -67,7 +84,6 @@ public class GlowButton extends View {
                 new float[]{ 0.45f, 1f }, Shader.TileMode.CLAMP));
         cv.drawCircle(cx, cy, glowR, glow);
 
-        // ana disk
         disc.setShader(new RadialGradient(cx, cy - r * 0.3f, r * 1.4f,
                 new int[]{ lighten(ac), ac, darken(ac) },
                 new float[]{ 0f, 0.55f, 1f }, Shader.TileMode.CLAMP));
@@ -76,7 +92,6 @@ public class GlowButton extends View {
         ring.setStrokeWidth(r * 0.06f);
         cv.drawCircle(cx, cy, r, ring);
 
-        // ikon
         float s = r * 0.5f;
         path.reset();
         if (playing) {
@@ -93,9 +108,7 @@ public class GlowButton extends View {
         }
     }
 
-    private static int withAlpha(int c, int a) {
-        return (a << 24) | (c & 0x00FFFFFF);
-    }
+    private static int withAlpha(int c, int a) { return (a << 24) | (c & 0x00FFFFFF); }
     private static int lighten(int c) {
         float[] h = new float[3]; Color.colorToHSV(c, h); h[2] = Math.min(1f, h[2] * 1.25f); h[1] *= 0.7f;
         return Color.HSVToColor(h);
@@ -108,6 +121,7 @@ public class GlowButton extends View {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        if (anim != null) anim.cancel();
+        if (pulseAnim != null) pulseAnim.cancel();
+        if (colorAnim != null) colorAnim.cancel();
     }
 }
