@@ -17,8 +17,13 @@ public class SettingsActivity extends Activity {
 
     private PlaybackService svc;
     private boolean bound = false;
-    private Button shuffleBtn, repeatBtn, speedBtn, sleepBtn;
+    private Button shuffleBtn, repeatBtn, speedBtn, sleepBtn, langBtn;
     private android.widget.EditText gainVal;
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(LocaleHelper.wrap(base));
+    }
 
     private final ServiceConnection conn = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName n, IBinder b) {
@@ -38,10 +43,12 @@ public class SettingsActivity extends Activity {
         repeatBtn = (Button) findViewById(R.id.repeat);
         speedBtn = (Button) findViewById(R.id.speed);
         sleepBtn = (Button) findViewById(R.id.sleep);
+        langBtn = (Button) findViewById(R.id.lang);
         gainVal = (android.widget.EditText) findViewById(R.id.gainVal);
-        for (int id : new int[]{R.id.shuffle, R.id.repeat, R.id.speed, R.id.sleep, R.id.log, R.id.back,
+        for (int id : new int[]{R.id.shuffle, R.id.repeat, R.id.speed, R.id.sleep, R.id.lang, R.id.log, R.id.back,
                 R.id.gainM1, R.id.gainM5, R.id.gainP5, R.id.gainP1})
             styleButton((Button) findViewById(id));
+        langBtn.setOnClickListener(v -> showLangDialog());
         findViewById(R.id.log).setOnClickListener(v -> startActivity(new Intent(this, LogActivity.class)));
 
         shuffleBtn.setOnClickListener(v -> { if (svc != null) { svc.setShuffle(!svc.isShuffle()); refresh(); } });
@@ -55,9 +62,33 @@ public class SettingsActivity extends Activity {
         gainVal.setOnEditorActionListener((tv, a, e) -> { applyGain(readGain()); return false; });
         gainVal.setOnFocusChangeListener((vv, h) -> { if (!h) applyGain(readGain()); });
         findViewById(R.id.back).setOnClickListener(v -> finish());
+        updateLangLabel();
 
         TextView info = (TextView) findViewById(R.id.info);
         info.setText(R.string.settings_info);
+    }
+
+    private void updateLangLabel() {
+        String lang = LocaleHelper.getLang(this);
+        String name = lang.equals("tr") ? "Türkçe" : (lang.equals("en") ? "English" : getString(R.string.lang_system));
+        langBtn.setText(getString(R.string.language_state, name));
+    }
+
+    private void showLangDialog() {
+        final String[] codes = {"", "en", "tr"};
+        String[] opts = {getString(R.string.lang_system), "English", "Türkçe"};
+        String cur = LocaleHelper.getLang(this);
+        int sel = cur.equals("en") ? 1 : (cur.equals("tr") ? 2 : 0);
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(R.string.language)
+                .setSingleChoiceItems(opts, sel, (d, w) -> {
+                    d.dismiss();
+                    if (!codes[w].equals(LocaleHelper.getLang(this))) {
+                        LocaleHelper.setLang(this, codes[w]);
+                        recreate();
+                    }
+                })
+                .show();
     }
 
     @Override protected void onStart() {

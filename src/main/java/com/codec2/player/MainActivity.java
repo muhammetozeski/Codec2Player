@@ -54,6 +54,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     private final ArrayList<Uri> pendingOpen = new ArrayList<>();
     private volatile boolean scanning = false;
     private int tintColor = 0xFF14202E;   // arka plana karisan, moda gore renk
+    private String appliedLang;
 
     private final ServiceConnection conn = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName n, IBinder b) {
@@ -71,8 +72,14 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     };
 
     @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(LocaleHelper.wrap(base));
+    }
+
+    @Override
     protected void onCreate(Bundle s) {
         super.onCreate(s);
+        appliedLang = LocaleHelper.getLang(this);
         setContentView(R.layout.activity_main);
 
         root = (LinearLayout) findViewById(R.id.root);
@@ -281,6 +288,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     @Override
     protected void onResume() {
         super.onResume();
+        if (appliedLang != null && !appliedLang.equals(LocaleHelper.getLang(this))) { recreate(); return; }
         resumed = true;
         // on planda oldugumuzdan emin -> startService burada guvenli (servisi kalici yap)
         try { startService(new Intent(this, PlaybackService.class)); } catch (Exception ignore) {}

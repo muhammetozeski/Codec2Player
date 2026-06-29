@@ -4,7 +4,7 @@
 
 No third-party libraries (no AndroidX, no Kotlin, no Material) — just core `android.*` plus a single small JNI `.so`. Single ABI (`armeabi-v7a`). The whole app installs in roughly the size of a couple of screenshots.
 
-> The app's UI is in Turkish, but it's trivial to follow. This README is in English.
+> The app ships with **English and Turkish**, switchable in **Settings → Language** (independent of the device locale). This README is in English.
 
 <p align="center">
   <img src="screenshots/playing.png" width="30%" />
@@ -90,9 +90,11 @@ from upstream; this repo ships the prebuilt `.so`.)
 
 ## 🌍 Translations
 
-The UI is fully localised. Strings live in `res/values/strings.xml` (English, default) and
-`res/values-tr/strings.xml` (Turkish). To add a language, copy `strings.xml` into
-`res/values-<lang>/` and translate the values — that's it. PRs welcome.
+The UI is fully localised and the language can be switched **in-app** (Settings → Language:
+System / English / Türkçe), independent of the device locale. Strings live in
+`res/values/strings.xml` (English, default) and `res/values-tr/strings.xml` (Turkish). To add a
+language, copy `strings.xml` into `res/values-<lang>/`, translate the values, and add it to the
+picker in `SettingsActivity`. PRs welcome.
 
 ## 📜 License
 

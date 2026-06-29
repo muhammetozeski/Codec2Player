@@ -73,6 +73,22 @@
         </LinearLayout>
 
         <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/language"
+            android:textColor="#7C8DA6"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:paddingTop="14dp"
+            android:paddingBottom="4dp" />
+
+        <Button
+            android:id="@+id/lang"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/language" />
+
+        <TextView
             android:id="@+id/info"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

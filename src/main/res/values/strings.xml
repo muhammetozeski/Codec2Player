@@ -5,6 +5,9 @@
 
     <!-- main screen -->
     <string name="settings">Settings</string>
+    <string name="language">Language</string>
+    <string name="lang_system">System default</string>
+    <string name="language_state">Language: %1$s</string>
     <string name="back">Back</string>
     <string name="clear">Clear</string>
     <string name="add_files">Add files</string>

@@ -67,6 +67,11 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     private SharedPreferences prefs;
 
     @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(LocaleHelper.wrap(base));
+    }
+
+    @Override
     public void onCreate() {
         super.onCreate();
         prefs = getSharedPreferences("c2player", MODE_PRIVATE);

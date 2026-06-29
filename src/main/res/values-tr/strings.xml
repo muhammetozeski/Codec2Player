@@ -3,6 +3,9 @@
     <string name="app_name">Codec2 Oynatıcı</string>
 
     <string name="settings">Ayarlar</string>
+    <string name="language">Dil</string>
+    <string name="lang_system">Sistem (varsayılan)</string>
+    <string name="language_state">Dil: %1$s</string>
     <string name="back">Geri</string>
     <string name="clear">Temizle</string>
     <string name="add_files">Dosya Ekle</string>

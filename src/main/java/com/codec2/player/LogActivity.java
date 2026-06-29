@@ -14,6 +14,11 @@ public class LogActivity extends Activity implements Log2.Listener {
     private ScrollView scroll;
 
     @Override
+    protected void attachBaseContext(android.content.Context base) {
+        super.attachBaseContext(LocaleHelper.wrap(base));
+    }
+
+    @Override
     protected void onCreate(Bundle s) {
         super.onCreate(s);
         setContentView(R.layout.activity_log);
