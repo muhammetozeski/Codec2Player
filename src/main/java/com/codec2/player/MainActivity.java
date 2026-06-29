@@ -53,6 +53,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     private boolean bound = false, resumed = false;
     private final ArrayList<Uri> pendingOpen = new ArrayList<>();
     private volatile boolean scanning = false;
+    private int tintColor = 0xFF14202E;   // arka plana karisan, moda gore renk
 
     private final ServiceConnection conn = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName n, IBinder b) {
@@ -277,6 +278,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
 
     @Override public void onTrackChanged(int index) {
         post(() -> {
+            updateTint();
             nowPlaying.setAlpha(0f);
             refreshNowPlaying();
             nowPlaying.animate().alpha(1f).setDuration(260).start();
@@ -284,6 +286,21 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             adapter.notifyDataSetChanged();
             updateListHeader();
         });
+    }
+
+    private void updateTint() {
+        if (svc == null) return;
+        int c = svc.getCurrent();
+        ArrayList<Item> pl = svc.getPlaylist();
+        if (c >= 0 && c < pl.size() && pl.get(c).mode >= 0)
+            tintColor = darkTint(modeColor(pl.get(c).mode));
+    }
+
+    private static int darkTint(int color) {
+        float[] h = new float[3];
+        android.graphics.Color.colorToHSV(color, h);
+        h[1] *= 0.85f; h[2] = 0.22f;
+        return android.graphics.Color.HSVToColor(h);
     }
     @Override public void onStateChanged(boolean playing) {
         post(() -> {
@@ -302,6 +319,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         int rm = svc.getRepeatMode();
         repeatMini.setText(rm == 0 ? "Tekrar" : (rm == 1 ? "Tekrar: Tümü" : "Tekrar: Tekli"));
         repeatMini.setTextColor(rm == 0 ? 0xFF7C8DA6 : 0xFF8FE3FF);
+        updateTint();
         refreshNowPlaying();
         updateListHeader();
     }
@@ -739,7 +757,9 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         va.setRepeatMode(android.animation.ValueAnimator.REVERSE);
         va.addUpdateListener(a -> {
             float f = (float) a.getAnimatedValue();
-            g.setColors(new int[]{ blend(0xFF0B1118, 0xFF132034, f), blend(0xFF161226, 0xFF0E2233, f), 0xFF0A0F16 });
+            int b1 = blend(0xFF0B1118, 0xFF132034, f);
+            int b2 = blend(0xFF161226, 0xFF0E2233, f);
+            g.setColors(new int[]{ blend(b1, tintColor, 0.12f), blend(b2, tintColor, 0.08f), 0xFF0A0F16 });
         });
         va.start();
     }
