@@ -75,5 +75,11 @@
         <service
             android:name=".PlaybackService"
             android:exported="false" />
+
+        <provider
+            android:name=".ShareProvider"
+            android:authorities="com.codec2.player.share"
+            android:exported="true"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>

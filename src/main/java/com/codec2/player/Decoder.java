@@ -80,5 +80,29 @@ public final class Decoder {
         return p;
     }
 
+    /** PCM short[] -> WAV (mono 16-bit, hz). */
+    public static void writeWav(java.io.File out, short[] pcm, int hz) throws java.io.IOException {
+        int dataLen = pcm.length * 2;
+        java.io.OutputStream os = new java.io.BufferedOutputStream(new java.io.FileOutputStream(out));
+        try {
+            wstr(os, "RIFF"); wint(os, 36 + dataLen); wstr(os, "WAVE");
+            wstr(os, "fmt "); wint(os, 16); wsh(os, (short) 1); wsh(os, (short) 1);
+            wint(os, hz); wint(os, hz * 2); wsh(os, (short) 2); wsh(os, (short) 16);
+            wstr(os, "data"); wint(os, dataLen);
+            byte[] buf = new byte[dataLen];
+            for (int i = 0; i < pcm.length; i++) {
+                buf[i * 2] = (byte) (pcm[i] & 0xff);
+                buf[i * 2 + 1] = (byte) ((pcm[i] >> 8) & 0xff);
+            }
+            os.write(buf);
+        } finally { os.close(); }
+    }
+
+    private static void wstr(java.io.OutputStream os, String s) throws java.io.IOException { os.write(s.getBytes("US-ASCII")); }
+    private static void wint(java.io.OutputStream os, int v) throws java.io.IOException {
+        os.write(v & 0xff); os.write((v >> 8) & 0xff); os.write((v >> 16) & 0xff); os.write((v >> 24) & 0xff);
+    }
+    private static void wsh(java.io.OutputStream os, short v) throws java.io.IOException { os.write(v & 0xff); os.write((v >> 8) & 0xff); }
+
     private Decoder() {}
 }

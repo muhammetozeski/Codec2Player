@@ -161,7 +161,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         if (pos < 0 || pos >= pl.size()) return;
         final Item it = pl.get(pos);
         final int size = pl.size();
-        final String[] opts = {"Buradan oynat", "Yukarı taşı", "Aşağı taşı", "Başa al", "Sona al", "Bilgi"};
+        final String[] opts = {"Buradan oynat", "Yukarı taşı", "Aşağı taşı", "Başa al", "Sona al", "WAV olarak paylaş", "Bilgi"};
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle(it.name)
                 .setItems(opts, (d, w) -> {
@@ -171,10 +171,39 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                         case 2: svc.moveItem(pos, Math.min(size - 1, pos + 1)); break;
                         case 3: svc.moveItem(pos, 0); break;
                         case 4: svc.moveItem(pos, size - 1); break;
-                        case 5: showInfo(it); break;
+                        case 5: shareAsWav(it); break;
+                        case 6: showInfo(it); break;
                     }
                 })
                 .show();
+    }
+
+    private void shareAsWav(final Item it) {
+        toast("WAV hazırlanıyor...");
+        new Thread(() -> {
+            try {
+                byte[] data = readAll(Uri.parse(it.uri));
+                Decoder.Result r = Decoder.decode(data, Codec2.MODE_1300);
+                if (r == null || r.pcm == null) { post(() -> toast("Çözülemedi")); return; }
+                java.io.File dir = new java.io.File(getFilesDir(), "share");
+                dir.mkdirs();
+                java.io.File[] old = dir.listFiles();   // eski paylasim wav'larini temizle
+                if (old != null) for (java.io.File f : old) f.delete();
+                String nm = (it.name == null) ? "ses" : it.name;
+                String base = nm.toLowerCase().endsWith(".c2") ? nm.substring(0, nm.length() - 3) : nm;
+                java.io.File out = new java.io.File(dir, base + ".wav");
+                Decoder.writeWav(out, r.pcm, r.sampleRate);
+                final Uri share = new Uri.Builder().scheme("content")
+                        .authority(ShareProvider.AUTHORITY).appendPath(out.getName()).build();
+                post(() -> {
+                    Intent send = new Intent(Intent.ACTION_SEND);
+                    send.setType("audio/wav");
+                    send.putExtra(Intent.EXTRA_STREAM, share);
+                    send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(send, "WAV paylaş"));
+                });
+            } catch (Exception e) { post(() -> toast("Hata: " + e.getMessage())); }
+        }).start();
     }
 
     private void showInfo(Item it) {
