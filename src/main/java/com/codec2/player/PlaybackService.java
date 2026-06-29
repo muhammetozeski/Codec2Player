@@ -317,7 +317,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
 
     private void createChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
-            NotificationChannel ch = new NotificationChannel(CHANNEL, "Oynatma",
+            NotificationChannel ch = new NotificationChannel(CHANNEL, getString(R.string.notif_channel),
                     NotificationManager.IMPORTANCE_LOW);
             ch.setShowBadge(false);
             ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch);
@@ -380,11 +380,11 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
                 .setOngoing(playing)
                 .setVisibility(Notification.VISIBILITY_PUBLIC);
 
-        b.addAction(new Notification.Action.Builder(android.R.drawable.ic_media_previous, "Önceki", svcPI(ACT_PREV, 1)).build());
+        b.addAction(new Notification.Action.Builder(android.R.drawable.ic_media_previous, getString(R.string.notif_prev), svcPI(ACT_PREV, 1)).build());
         b.addAction(new Notification.Action.Builder(
                 playing ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
-                playing ? "Duraklat" : "Oynat", svcPI(ACT_TOGGLE, 2)).build());
-        b.addAction(new Notification.Action.Builder(android.R.drawable.ic_media_next, "Sonraki", svcPI(ACT_NEXT, 3)).build());
+                getString(playing ? R.string.notif_pause : R.string.notif_play), svcPI(ACT_TOGGLE, 2)).build());
+        b.addAction(new Notification.Action.Builder(android.R.drawable.ic_media_next, getString(R.string.notif_next), svcPI(ACT_NEXT, 3)).build());
 
         if (Build.VERSION.SDK_INT >= 21) {
             Notification.MediaStyle style = new Notification.MediaStyle()

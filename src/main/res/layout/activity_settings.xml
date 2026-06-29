@@ -16,7 +16,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:text="Ayarlar"
+            android:text="@string/settings"
             android:textColor="#EAF2FF"
             android:textSize="22sp"
             android:textStyle="bold"
@@ -25,7 +25,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Oynatma"
+            android:text="@string/section_playback"
             android:textColor="#7C8DA6"
             android:textSize="12sp"
             android:letterSpacing="0.1"
@@ -35,26 +35,26 @@
             android:id="@+id/shuffle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Karıştır: Kapalı" />
+            android:text="@string/shuffle" />
         <Button
             android:id="@+id/repeat"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Tekrar: Kapalı" />
+            android:text="@string/repeat" />
         <Button
             android:id="@+id/speed"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Hız: 1.0x" />
+            android:text="1.0x" />
         <Button
             android:id="@+id/sleep"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Uyku: Kapalı" />
+            android:text="@string/sleep_off" />
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Ses kazancı (dB) — sınırsız, eksi olabilir"
+            android:text="@string/gain_label"
             android:textColor="#9FB3CC"
             android:textSize="12sp"
             android:paddingTop="10dp"
@@ -87,14 +87,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Günlük / Konsol" />
+            android:text="@string/log_console" />
 
         <Button
             android:id="@+id/back"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            android:text="Geri" />
+            android:text="@string/back" />
 
     </LinearLayout>
 </ScrollView>

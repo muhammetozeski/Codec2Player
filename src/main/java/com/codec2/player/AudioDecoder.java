@@ -41,7 +41,7 @@ public final class AudioDecoder {
             String mime = fmt.getString(MediaFormat.KEY_MIME);
             int srcRate = fmt.getInteger(MediaFormat.KEY_SAMPLE_RATE);
             int channels = fmt.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
-            Log2.add("Kaynak biçimi: " + mime + "  " + srcRate + " Hz  " + channels + " kanal");
+            Log2.add(ctx.getString(R.string.conv_src_format, mime, srcRate, channels));
 
             MediaCodec codec = MediaCodec.createDecoderByType(mime);
             codec.configure(fmt, null, null, 0);

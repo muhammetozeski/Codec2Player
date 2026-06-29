@@ -1,4 +1,100 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Default (English). Turkish overrides are in values-tr/strings.xml. -->
 <resources>
-    <string name="app_name">Codec2 Oynatıcı</string>
+    <string name="app_name">Codec2 Player</string>
+
+    <!-- main screen -->
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+    <string name="clear">Clear</string>
+    <string name="add_files">Add files</string>
+    <string name="add_folder">Add folder</string>
+    <string name="convert_audio">Convert audio to C2</string>
+    <string name="playlist">Playlist</string>
+    <string name="pick_or_add">Pick or add a file</string>
+    <string name="ready">Ready</string>
+    <string name="empty_hint">No files yet.\n\nStart with “Add files”, “Add folder”\nor “Convert audio to C2”.</string>
+    <string name="sep">  ·  </string>
+
+    <!-- shuffle / repeat -->
+    <string name="shuffle">Shuffle</string>
+    <string name="repeat">Repeat</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="repeat_all">All</string>
+    <string name="repeat_one">One</string>
+    <string name="shuffle_state">Shuffle: %1$s</string>
+    <string name="repeat_state">Repeat: %1$s</string>
+    <string name="repeat_label_all">Repeat: All</string>
+    <string name="repeat_label_one">Repeat: One</string>
+
+    <!-- counts -->
+    <string name="tracks_count">%1$d tracks</string>
+    <string name="playlist_count">Playlist  ·  %1$d tracks</string>
+    <string name="playlist_count_dur">Playlist  ·  %1$d tracks  ·  ~%2$s</string>
+
+    <!-- settings -->
+    <string name="section_playback">Playback</string>
+    <string name="speed_state">Speed: %1$sx</string>
+    <string name="sleep_off">Sleep: Off</string>
+    <string name="sleep_min">Sleep: %1$d min</string>
+    <string name="gain_label">Audio gain (dB) — unlimited, can be negative</string>
+    <string name="log_console">Log / Console</string>
+    <string name="log_empty">(empty)</string>
+    <string name="settings_info">Codec2 Player  ·  version 1.0\nPure Android, no libraries\nSingle ABI (armeabi-v7a), ~300 KB installed</string>
+
+    <!-- long-press menu -->
+    <string name="m_play_here">Play from here</string>
+    <string name="m_move_up">Move up</string>
+    <string name="m_move_down">Move down</string>
+    <string name="m_to_top">Move to top</string>
+    <string name="m_to_bottom">Move to bottom</string>
+    <string name="m_share_c2">Share as C2</string>
+    <string name="m_share_wav">Share as WAV</string>
+    <string name="m_info">Info</string>
+
+    <!-- info dialog -->
+    <string name="info_title">Info</string>
+    <string name="ok">OK</string>
+    <string name="info_body">Name: %1$s\nMode: %2$s\nDuration: %3$s\nSize: %4$s\nSource: %5$s</string>
+    <string name="unknown">?</string>
+    <string name="unnamed">(unnamed)</string>
+
+    <!-- conversion -->
+    <string name="conv_title">%1$d file(s)  ·  %2$s  ·  C2 mode</string>
+    <string name="conv_mode_3200">3200 — best quality</string>
+    <string name="conv_mode_1300">1300 — balanced</string>
+    <string name="conv_mode_700c">700C — small</string>
+    <string name="conv_mode_450">450 — smallest</string>
+    <string name="conv_size_suffix">   (~%1$d KB)</string>
+    <string name="conv_header">=== Audio → C2 conversion (%1$d files · mode %2$s) ===</string>
+    <string name="conv_item">[%1$d/%2$d] %3$s</string>
+    <string name="conv_decoding">Decoding (device codec)…</string>
+    <string name="conv_src_format">Source format: %1$s  %2$d Hz  %3$d ch</string>
+    <string name="conv_pcm">PCM 8 kHz mono: %1$d samples (~%2$d s)</string>
+    <string name="conv_no_decode">ERROR: could not decode audio</string>
+    <string name="conv_no_encode">ERROR: could not encode</string>
+    <string name="conv_folder_orig">Folder: %1$s  (next to original)</string>
+    <string name="conv_folder_app">Folder: %1$s  (app)</string>
+    <string name="conv_written">✓ %1$s  (%2$d KB, %3$d ms)</string>
+    <string name="conv_done">✓ DONE: %1$d/%2$d succeeded</string>
+    <string name="conv_error">ERROR: %1$s</string>
+
+    <!-- toasts / share -->
+    <string name="files_added">%1$d file(s) added</string>
+    <string name="scanning_folder">Scanning folder…</string>
+    <string name="c2_found">%1$d c2 file(s) found</string>
+    <string name="files_opened">%1$d file(s) opened</string>
+    <string name="share_c2_title">Share C2</string>
+    <string name="share_wav_title">Share WAV</string>
+    <string name="wav_preparing">Preparing WAV…</string>
+    <string name="read_failed">Could not read: %1$s</string>
+    <string name="error_msg">Error: %1$s</string>
+
+    <!-- notification -->
+    <string name="notif_prev">Previous</string>
+    <string name="notif_play">Play</string>
+    <string name="notif_pause">Pause</string>
+    <string name="notif_next">Next</string>
+    <string name="notif_channel">Playback</string>
 </resources>

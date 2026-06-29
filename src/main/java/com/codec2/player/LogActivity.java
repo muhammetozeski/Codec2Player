@@ -42,7 +42,7 @@ public class LogActivity extends Activity implements Log2.Listener {
 
     @Override
     public void onLog(String full) {
-        text.setText(full.isEmpty() ? "(bos)" : full);
+        text.setText(full.isEmpty() ? getString(R.string.log_empty) : full);
         scroll.post(new Runnable() {
             @Override public void run() { scroll.fullScroll(View.FOCUS_DOWN); }
         });

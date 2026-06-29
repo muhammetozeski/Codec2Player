@@ -84,7 +84,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         listHeader = (TextView) findViewById(R.id.listHeader);
         list = (ListView) findViewById(R.id.list);
         TextView emptyHint = (TextView) findViewById(R.id.emptyHint);
-        emptyHint.setText("Henüz dosya yok.\n\n\"Dosya Ekle\", \"Klasör Ekle\" ya da\n\"Ses dosyasını C2'ye çevir\" ile başla.");
+        emptyHint.setText(R.string.empty_hint);
         list.setEmptyView(emptyHint);
         nowPlaying.setSelected(true);   // uzun ad icin marquee kaysin
 
@@ -157,7 +157,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         svc.addItems(items);
         int idx = svc.indexOfUri(firstUri);
         if (idx >= 0) svc.playIndex(idx);
-        toast(items.size() + " dosya açıldı");
+        toast(getString(R.string.files_opened, items.size()));
     }
 
     // ---------- uzun bas menüsü (silme YOK) ----------
@@ -168,8 +168,9 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         if (pos < 0 || pos >= pl.size()) return;
         final Item it = pl.get(pos);
         final int size = pl.size();
-        final String[] opts = {"Buradan oynat", "Yukarı taşı", "Aşağı taşı", "Başa al", "Sona al",
-                "C2 olarak paylaş", "WAV olarak paylaş", "Bilgi"};
+        final String[] opts = {getString(R.string.m_play_here), getString(R.string.m_move_up),
+                getString(R.string.m_move_down), getString(R.string.m_to_top), getString(R.string.m_to_bottom),
+                getString(R.string.m_share_c2), getString(R.string.m_share_wav), getString(R.string.m_info)};
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle(it.name)
                 .setItems(opts, (d, w) -> {
@@ -207,19 +208,19 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                     send.setType("application/octet-stream");
                     send.putExtra(Intent.EXTRA_STREAM, share);
                     send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    startActivity(Intent.createChooser(send, "C2 paylaş"));
+                    startActivity(Intent.createChooser(send, getString(R.string.share_c2_title)));
                 });
-            } catch (Exception e) { post(() -> toast("Hata: " + e.getMessage())); }
+            } catch (Exception e) { post(() -> toast(getString(R.string.error_msg, e.getMessage()))); }
         }).start();
     }
 
     private void shareAsWav(final Item it) {
-        toast("WAV hazırlanıyor...");
+        toast(getString(R.string.wav_preparing));
         new Thread(() -> {
             try {
                 byte[] data = readAll(Uri.parse(it.uri));
                 Decoder.Result r = Decoder.decode(data, Codec2.MODE_1300);
-                if (r == null || r.pcm == null) { post(() -> toast("Çözülemedi")); return; }
+                if (r == null || r.pcm == null) { post(() -> toast(getString(R.string.conv_no_decode))); return; }
                 java.io.File dir = new java.io.File(getFilesDir(), "share");
                 dir.mkdirs();
                 java.io.File[] old = dir.listFiles();   // eski paylasim wav'larini temizle
@@ -235,24 +236,23 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                     send.setType("audio/wav");
                     send.putExtra(Intent.EXTRA_STREAM, share);
                     send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    startActivity(Intent.createChooser(send, "WAV paylaş"));
+                    startActivity(Intent.createChooser(send, getString(R.string.share_wav_title)));
                 });
-            } catch (Exception e) { post(() -> toast("Hata: " + e.getMessage())); }
+            } catch (Exception e) { post(() -> toast(getString(R.string.error_msg, e.getMessage()))); }
         }).start();
     }
 
     private void showInfo(Item it) {
         long size = -1;
         try { size = querySize(Uri.parse(it.uri)); } catch (Exception ignore) {}
-        String msg = "Ad: " + it.name
-                + "\nMod: " + (it.mode >= 0 ? modeLabel(it.mode) : "?")
-                + "\nSüre: " + (it.durSec >= 0 ? fmt(it.durSec) : "?")
-                + "\nBoyut: " + humanSize(size)
-                + "\nKaynak: " + it.uri;
+        String msg = getString(R.string.info_body, it.name,
+                (it.mode >= 0 ? modeLabel(it.mode) : "?"),
+                (it.durSec >= 0 ? fmt(it.durSec) : "?"),
+                humanSize(size), it.uri);
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Bilgi")
+                .setTitle(R.string.info_title)
                 .setMessage(msg)
-                .setPositiveButton("Tamam", null)
+                .setPositiveButton(R.string.ok, null)
                 .show();
     }
 
@@ -345,7 +345,8 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         boolean sh = svc.isShuffle();
         shuffleMini.setTextColor(sh ? 0xFF8FE3FF : 0xFF7C8DA6);
         int rm = svc.getRepeatMode();
-        repeatMini.setText(rm == 0 ? "Tekrar" : (rm == 1 ? "Tekrar: Tümü" : "Tekrar: Tekli"));
+        repeatMini.setText(rm == 0 ? getString(R.string.repeat)
+                : (rm == 1 ? getString(R.string.repeat_label_all) : getString(R.string.repeat_label_one)));
         repeatMini.setTextColor(rm == 0 ? 0xFF7C8DA6 : 0xFF8FE3FF);
         updateTint();
         refreshNowPlaying();
@@ -354,13 +355,13 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
 
     private void updateListHeader() {
         if (listHeader == null) return;
-        if (svc == null) { listHeader.setText("Çalma listesi"); return; }
+        if (svc == null) { listHeader.setText(R.string.playlist); return; }
         ArrayList<Item> pl = svc.getPlaylist();
         int known = 0;
         for (Item it : pl) if (it.durSec > 0) known += it.durSec;
-        String t = "Çalma listesi   ·   " + pl.size() + " parça";
-        if (known > 0) t += "   ·   ~" + fmt(known);
-        listHeader.setText(t);
+        listHeader.setText(known > 0
+                ? getString(R.string.playlist_count_dur, pl.size(), fmt(known))
+                : getString(R.string.playlist_count, pl.size()));
     }
 
     private void refreshNowPlaying() {
@@ -380,7 +381,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             if (it.durSec >= 0) { dimSep(sb); sb.append(fmt(it.durSec)); }
             nowPlaying.setText(sb);
         } else {
-            nowPlaying.setText(pl.isEmpty() ? "Bir dosya seç ya da ekle" : "Hazır");
+            nowPlaying.setText(getString(pl.isEmpty() ? R.string.pick_or_add : R.string.ready));
         }
     }
 
@@ -466,15 +467,15 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             else if (data.getData() != null) uris.add(data.getData());
             for (Uri u : uris) { persist(u); items.add(new Item(u.toString(), queryName(u))); }
             svc.addItems(items);
-            toast(items.size() + " dosya eklendi");
+            toast(getString(R.string.files_added, items.size()));
 
         } else if (req == REQ_FOLDER) {
             final Uri tree = data.getData();
             persist(tree);
-            nowPlaying.setText("Klasör taranıyor...");
+            nowPlaying.setText(getString(R.string.scanning_folder));
             new Thread(() -> {
                 final ArrayList<Item> found = scanTree(tree);
-                post(() -> { svc.addItems(found); toast(found.size() + " c2 dosyası bulundu"); refreshNowPlaying(); });
+                post(() -> { svc.addItems(found); toast(getString(R.string.c2_found, found.size())); refreshNowPlaying(); });
             }, "scan").start();
 
         } else if (req == REQ_CONVERT) {
@@ -525,50 +526,50 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     private void showConvertDialogReady(final ArrayList<Uri> uris, int totalSec) {
         final int[] modes = {0, 4, 8, 10};
         final int[] bps = {3200, 1300, 700, 450};
-        final String[] base = {"3200 — en kaliteli", "1300 — dengeli", "700C — küçük", "450 — en küçük"};
+        final int[] baseStr = {R.string.conv_mode_3200, R.string.conv_mode_1300, R.string.conv_mode_700c, R.string.conv_mode_450};
         String[] labels = new String[4];
         for (int i = 0; i < 4; i++) {
             int kb = (int) ((long) bps[i] * totalSec / 8 / 1024);
-            labels[i] = base[i] + (totalSec > 0 ? "   (~" + kb + " KB)" : "");
+            labels[i] = getString(baseStr[i]) + (totalSec > 0 ? getString(R.string.conv_size_suffix, kb) : "");
         }
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle(uris.size() + " dosya · " + fmt(totalSec) + " · C2 modu")
+                .setTitle(getString(R.string.conv_title, uris.size(), fmt(totalSec)))
                 .setItems(labels, (d, w) -> convertAll(uris, modes[w]))
                 .show();
     }
 
     private void convertAll(final ArrayList<Uri> uris, final int mode) {
         Log2.clear();
-        Log2.add("=== Ses → C2 dönüştürme (" + uris.size() + " dosya · mod " + modeLabel(mode) + ") ===");
+        Log2.add(getString(R.string.conv_header, uris.size(), modeLabel(mode)));
         startActivity(new Intent(this, LogActivity.class));   // canli gunlugu ac
         new Thread(() -> {
             int ok = 0;
             for (int i = 0; i < uris.size(); i++) {
                 Log2.add("");
-                Log2.add("[" + (i + 1) + "/" + uris.size() + "] " + queryName(uris.get(i)));
+                Log2.add(getString(R.string.conv_item, i + 1, uris.size(), queryName(uris.get(i))));
                 if (convertOne(uris.get(i), mode)) ok++;
             }
             Log2.add("");
-            Log2.add("✓ BİTTİ: " + ok + "/" + uris.size() + " başarılı");
+            Log2.add(getString(R.string.conv_done, ok, uris.size()));
         }, "convert").start();
     }
 
     /** Tek dosyayi cevirir; basariliysa true. Arka plan thread'inde cagrilir. */
     private boolean convertOne(Uri u, int mode) {
         try {
-            Log2.add("Çözülüyor (cihazın kendi codec'i)...");
+            Log2.add(getString(R.string.conv_decoding));
             long t0 = android.os.SystemClock.elapsedRealtime();
             short[] pcm = AudioDecoder.decodeTo8kMono(MainActivity.this, u);
-            if (pcm == null || pcm.length == 0) { Log2.add("HATA: ses çözülemedi"); return false; }
-            Log2.add("PCM 8 kHz mono: " + pcm.length + " örnek (~" + (pcm.length / 8000) + " sn)");
+            if (pcm == null || pcm.length == 0) { Log2.add(getString(R.string.conv_no_decode)); return false; }
+            Log2.add(getString(R.string.conv_pcm, pcm.length, pcm.length / 8000));
             byte[] c2 = Encoder.encodeToC2(pcm, mode);
-            if (c2 == null) { Log2.add("HATA: kodlanamadı"); return false; }
+            if (c2 == null) { Log2.add(getString(R.string.conv_no_encode)); return false; }
             String base = queryName(u);
             int dot = base.lastIndexOf('.');
             if (dot > 0) base = base.substring(0, dot);
             java.io.File dir = resolveDir(u);
-            if (dir != null && dir.canWrite()) Log2.add("Klasör: " + dir.getAbsolutePath() + "  (orijinalin yanı)");
-            else { dir = new java.io.File(getExternalFilesDir(null), "converted"); dir.mkdirs(); Log2.add("Klasör: " + dir.getAbsolutePath() + "  (uygulama)"); }
+            if (dir != null && dir.canWrite()) Log2.add(getString(R.string.conv_folder_orig, dir.getAbsolutePath()));
+            else { dir = new java.io.File(getExternalFilesDir(null), "converted"); dir.mkdirs(); Log2.add(getString(R.string.conv_folder_app, dir.getAbsolutePath())); }
             java.io.File out = new java.io.File(dir, base + ".c2");
             int kk = 1;
             while (out.exists()) { out = new java.io.File(dir, base + " (" + kk + ").c2"); kk++; }
@@ -576,7 +577,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             java.io.FileOutputStream fos = new java.io.FileOutputStream(outF);
             fos.write(c2); fos.close();
             long dt = android.os.SystemClock.elapsedRealtime() - t0;
-            Log2.add("✓ " + outF.getName() + "  (" + Math.max(1, c2.length / 1024) + " KB, " + dt + " ms)");
+            Log2.add(getString(R.string.conv_written, outF.getName(), Math.max(1, c2.length / 1024), (int) dt));
             post(() -> {
                 if (svc != null) {
                     ArrayList<Item> items = new ArrayList<>();
@@ -585,7 +586,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                 }
             });
             return true;
-        } catch (Exception e) { Log2.add("HATA: " + e); return false; }
+        } catch (Exception e) { Log2.add(getString(R.string.conv_error, String.valueOf(e))); return false; }
     }
 
     /** Kaynak uri'nin gercek klasoru (orijinalin yani). Cozulemezse null. */
@@ -757,7 +758,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             boolean cur = (p == svc.getCurrent());
             TextView t1 = (TextView) row.findViewById(android.R.id.text1);
             TextView t2 = (TextView) row.findViewById(android.R.id.text2);
-            String nm = (it.name == null || it.name.isEmpty()) ? "(adsız)" : it.name;
+            String nm = (it.name == null || it.name.isEmpty()) ? getString(R.string.unnamed) : it.name;
             t1.setText((cur ? ">  " : "") + nm);
             t1.setTextColor(cur ? 0xFF8FE3FF : 0xFFE6EEF8);
             android.text.SpannableStringBuilder sub = new android.text.SpannableStringBuilder();

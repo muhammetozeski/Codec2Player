@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Codec2 Oynatıcı</string>
+
+    <string name="settings">Ayarlar</string>
+    <string name="back">Geri</string>
+    <string name="clear">Temizle</string>
+    <string name="add_files">Dosya Ekle</string>
+    <string name="add_folder">Klasör Ekle</string>
+    <string name="convert_audio">Ses dosyasını C2\'ye çevir</string>
+    <string name="playlist">Çalma listesi</string>
+    <string name="pick_or_add">Bir dosya seç ya da ekle</string>
+    <string name="ready">Hazır</string>
+    <string name="empty_hint">Henüz dosya yok.\n\n“Dosya Ekle”, “Klasör Ekle” ya da\n“Ses dosyasını C2\'ye çevir” ile başla.</string>
+    <string name="sep">  ·  </string>
+
+    <string name="shuffle">Karıştır</string>
+    <string name="repeat">Tekrar</string>
+    <string name="on">Açık</string>
+    <string name="off">Kapalı</string>
+    <string name="repeat_all">Tümü</string>
+    <string name="repeat_one">Tekli</string>
+    <string name="shuffle_state">Karıştır: %1$s</string>
+    <string name="repeat_state">Tekrar: %1$s</string>
+    <string name="repeat_label_all">Tekrar: Tümü</string>
+    <string name="repeat_label_one">Tekrar: Tekli</string>
+
+    <string name="tracks_count">%1$d parça</string>
+    <string name="playlist_count">Çalma listesi  ·  %1$d parça</string>
+    <string name="playlist_count_dur">Çalma listesi  ·  %1$d parça  ·  ~%2$s</string>
+
+    <string name="section_playback">Oynatma</string>
+    <string name="speed_state">Hız: %1$sx</string>
+    <string name="sleep_off">Uyku: Kapalı</string>
+    <string name="sleep_min">Uyku: %1$d dk</string>
+    <string name="gain_label">Ses kazancı (dB) — sınırsız, eksi olabilir</string>
+    <string name="log_console">Günlük / Konsol</string>
+    <string name="log_empty">(boş)</string>
+    <string name="settings_info">Codec2 Oynatıcı  ·  sürüm 1.0\nSaf Android, kütüphane yok\nTek ABI (armeabi-v7a), kurulu boyut ~300 KB</string>
+
+    <string name="m_play_here">Buradan oynat</string>
+    <string name="m_move_up">Yukarı taşı</string>
+    <string name="m_move_down">Aşağı taşı</string>
+    <string name="m_to_top">Başa al</string>
+    <string name="m_to_bottom">Sona al</string>
+    <string name="m_share_c2">C2 olarak paylaş</string>
+    <string name="m_share_wav">WAV olarak paylaş</string>
+    <string name="m_info">Bilgi</string>
+
+    <string name="info_title">Bilgi</string>
+    <string name="ok">Tamam</string>
+    <string name="info_body">Ad: %1$s\nMod: %2$s\nSüre: %3$s\nBoyut: %4$s\nKaynak: %5$s</string>
+    <string name="unknown">?</string>
+    <string name="unnamed">(adsız)</string>
+
+    <string name="conv_title">%1$d dosya  ·  %2$s  ·  C2 modu</string>
+    <string name="conv_mode_3200">3200 — en kaliteli</string>
+    <string name="conv_mode_1300">1300 — dengeli</string>
+    <string name="conv_mode_700c">700C — küçük</string>
+    <string name="conv_mode_450">450 — en küçük</string>
+    <string name="conv_size_suffix">   (~%1$d KB)</string>
+    <string name="conv_header">=== Ses → C2 dönüştürme (%1$d dosya · mod %2$s) ===</string>
+    <string name="conv_item">[%1$d/%2$d] %3$s</string>
+    <string name="conv_decoding">Çözülüyor (cihazın kendi codec\'i)…</string>
+    <string name="conv_src_format">Kaynak biçimi: %1$s  %2$d Hz  %3$d kanal</string>
+    <string name="conv_pcm">PCM 8 kHz mono: %1$d örnek (~%2$d sn)</string>
+    <string name="conv_no_decode">HATA: ses çözülemedi</string>
+    <string name="conv_no_encode">HATA: kodlanamadı</string>
+    <string name="conv_folder_orig">Klasör: %1$s  (orijinalin yanı)</string>
+    <string name="conv_folder_app">Klasör: %1$s  (uygulama)</string>
+    <string name="conv_written">✓ %1$s  (%2$d KB, %3$d ms)</string>
+    <string name="conv_done">✓ BİTTİ: %1$d/%2$d başarılı</string>
+    <string name="conv_error">HATA: %1$s</string>
+
+    <string name="files_added">%1$d dosya eklendi</string>
+    <string name="scanning_folder">Klasör taranıyor…</string>
+    <string name="c2_found">%1$d c2 dosyası bulundu</string>
+    <string name="files_opened">%1$d dosya açıldı</string>
+    <string name="share_c2_title">C2 paylaş</string>
+    <string name="share_wav_title">WAV paylaş</string>
+    <string name="wav_preparing">WAV hazırlanıyor…</string>
+    <string name="read_failed">Okunamadı: %1$s</string>
+    <string name="error_msg">Hata: %1$s</string>
+
+    <string name="notif_prev">Önceki</string>
+    <string name="notif_play">Oynat</string>
+    <string name="notif_pause">Duraklat</string>
+    <string name="notif_next">Sonraki</string>
+    <string name="notif_channel">Oynatma</string>
+</resources>

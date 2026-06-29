@@ -57,9 +57,7 @@ public class SettingsActivity extends Activity {
         findViewById(R.id.back).setOnClickListener(v -> finish());
 
         TextView info = (TextView) findViewById(R.id.info);
-        info.setText("Codec2 Oynatıcı  ·  sürüm 1.0\n"
-                + "Saf Android, kütüphane yok\n"
-                + "Tek ABI (armeabi-v7a), kurulu boyut ~285 KB");
+        info.setText(R.string.settings_info);
     }
 
     @Override protected void onStart() {
@@ -74,12 +72,12 @@ public class SettingsActivity extends Activity {
 
     private void refresh() {
         if (svc == null) return;
-        shuffleBtn.setText("Karıştır: " + (svc.isShuffle() ? "Açık" : "Kapalı"));
-        String[] rl = {"Kapalı", "Tümü", "Tekli"};
-        repeatBtn.setText("Tekrar: " + rl[svc.getRepeatMode()]);
-        speedBtn.setText("Hız: " + String.valueOf(svc.getSpeed()) + "x");
+        shuffleBtn.setText(getString(R.string.shuffle_state, getString(svc.isShuffle() ? R.string.on : R.string.off)));
+        int[] rl = {R.string.off, R.string.repeat_all, R.string.repeat_one};
+        repeatBtn.setText(getString(R.string.repeat_state, getString(rl[svc.getRepeatMode()])));
+        speedBtn.setText(getString(R.string.speed_state, String.valueOf(svc.getSpeed())));
         int sm = svc.getSleepMin();
-        sleepBtn.setText("Uyku: " + (sm == 0 ? "Kapalı" : sm + " dk"));
+        sleepBtn.setText(sm == 0 ? getString(R.string.sleep_off) : getString(R.string.sleep_min, sm));
         if (!gainVal.hasFocus()) gainVal.setText(fmtGain(svc.getGainDb()));
     }
 

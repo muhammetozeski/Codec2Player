@@ -19,7 +19,7 @@
             android:gravity="center_vertical"
             android:singleLine="true"
             android:ellipsize="end"
-            android:text="Codec2 Oynatıcı"
+            android:text="@string/app_name"
             android:textColor="#EAF2FF"
             android:textSize="19sp"
             android:textStyle="bold"
@@ -29,7 +29,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:singleLine="true"
-            android:text="Ayarlar"
+            android:text="@string/settings"
             android:textSize="12sp" />
     </LinearLayout>
 
@@ -42,7 +42,7 @@
         android:singleLine="true"
         android:ellipsize="marquee"
         android:marqueeRepeatLimit="marquee_forever"
-        android:text="Bir dosya seç ya da ekle"
+        android:text="@string/pick_or_add"
         android:textColor="#9FB3CC"
         android:textSize="13sp" />
 
@@ -88,7 +88,7 @@
             android:layout_height="wrap_content"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:text="Karıştır"
+            android:text="@string/shuffle"
             android:textSize="11sp" />
         <Button
             android:id="@+id/repeatMini"
@@ -96,7 +96,7 @@
             android:layout_height="wrap_content"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:text="Tekrar"
+            android:text="@string/repeat"
             android:textSize="11sp" />
     </LinearLayout>
 
@@ -133,20 +133,20 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Dosya Ekle" />
+            android:text="@string/add_files" />
         <Button
             android:id="@+id/addFolder"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Klasör Ekle" />
+            android:text="@string/add_folder" />
     </LinearLayout>
 
     <Button
         android:id="@+id/convert"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Ses dosyasını C2'ye çevir"
+        android:text="@string/convert_audio"
         android:textSize="13sp" />
 
     <TextView
@@ -154,7 +154,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Çalma listesi"
+        android:text="@string/playlist"
         android:textColor="#7C8DA6"
         android:textSize="12sp"
         android:letterSpacing="0.08" />
