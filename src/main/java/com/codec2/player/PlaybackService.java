@@ -74,7 +74,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         shuffle = prefs.getBoolean("shuffle", false);
         repeatMode = prefs.getInt("repeatMode", 0);
         engine.setSpeed(prefs.getFloat("speed", 1f));
-        engine.setGainMb(prefs.getInt("gainMb", 0));
+        engine.setGainDb(prefs.getFloat("gainDb", 0f));
         loadPlaylist();
         int ri = prefs.getInt("curIdx", -1);
         if (ri >= 0 && ri < playlist.size()) prepareResume(ri, prefs.getInt("curPos", 0));
@@ -143,14 +143,10 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         if (sleepMin > 0) sleepH.postDelayed(sleepR, sleepMin * 60000L);
     }
 
-    public int getGainMb() { return engine.getGainMb(); }
-    public void cycleGain() {
-        int[] g = {0, 600, 1200};
-        int cur = engine.getGainMb(), idx = 0;
-        for (int i = 0; i < g.length; i++) if (g[i] == cur) { idx = i; break; }
-        int ng = g[(idx + 1) % g.length];
-        engine.setGainMb(ng);
-        prefs.edit().putInt("gainMb", ng).apply();
+    public float getGainDb() { return engine.getGainDb(); }
+    public void setGainDb(float db) {
+        engine.setGainDb(db);
+        prefs.edit().putFloat("gainDb", db).apply();
     }
 
     public int indexOfUri(String uri) {

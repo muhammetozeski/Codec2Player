@@ -51,11 +51,26 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Uyku: Kapalı" />
-        <Button
-            android:id="@+id/gain"
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Ses yükselt: Kapalı" />
+            android:text="Ses kazancı (dB) — sınırsız, eksi olabilir"
+            android:textColor="#9FB3CC"
+            android:textSize="12sp"
+            android:paddingTop="10dp"
+            android:paddingBottom="4dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal">
+            <Button android:id="@+id/gainM1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minWidth="44dp" android:text="-" />
+            <Button android:id="@+id/gainM5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minWidth="44dp" android:text="-5" />
+            <EditText android:id="@+id/gainVal" android:layout_width="96dp" android:layout_height="wrap_content" android:gravity="center" android:inputType="numberSigned|numberDecimal" android:text="0" android:textColor="#EAF2FF" android:textSize="18sp" />
+            <Button android:id="@+id/gainP5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minWidth="44dp" android:text="+5" />
+            <Button android:id="@+id/gainP1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minWidth="44dp" android:text="+" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/info"

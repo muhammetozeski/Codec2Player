@@ -17,7 +17,8 @@ public class SettingsActivity extends Activity {
 
     private PlaybackService svc;
     private boolean bound = false;
-    private Button shuffleBtn, repeatBtn, speedBtn, sleepBtn, gainBtn;
+    private Button shuffleBtn, repeatBtn, speedBtn, sleepBtn;
+    private android.widget.EditText gainVal;
 
     private final ServiceConnection conn = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName n, IBinder b) {
@@ -37,8 +38,9 @@ public class SettingsActivity extends Activity {
         repeatBtn = (Button) findViewById(R.id.repeat);
         speedBtn = (Button) findViewById(R.id.speed);
         sleepBtn = (Button) findViewById(R.id.sleep);
-        gainBtn = (Button) findViewById(R.id.gain);
-        for (int id : new int[]{R.id.shuffle, R.id.repeat, R.id.speed, R.id.sleep, R.id.gain, R.id.log, R.id.back})
+        gainVal = (android.widget.EditText) findViewById(R.id.gainVal);
+        for (int id : new int[]{R.id.shuffle, R.id.repeat, R.id.speed, R.id.sleep, R.id.log, R.id.back,
+                R.id.gainM1, R.id.gainM5, R.id.gainP5, R.id.gainP1})
             styleButton((Button) findViewById(id));
         findViewById(R.id.log).setOnClickListener(v -> startActivity(new Intent(this, LogActivity.class)));
 
@@ -46,7 +48,12 @@ public class SettingsActivity extends Activity {
         repeatBtn.setOnClickListener(v -> { if (svc != null) { svc.cycleRepeat(); refresh(); } });
         speedBtn.setOnClickListener(v -> { if (svc != null) { svc.cycleSpeed(); refresh(); } });
         sleepBtn.setOnClickListener(v -> { if (svc != null) { svc.cycleSleep(); refresh(); } });
-        gainBtn.setOnClickListener(v -> { if (svc != null) { svc.cycleGain(); refresh(); } });
+        findViewById(R.id.gainM1).setOnClickListener(v -> nudgeGain(-1));
+        findViewById(R.id.gainM5).setOnClickListener(v -> nudgeGain(-5));
+        findViewById(R.id.gainP5).setOnClickListener(v -> nudgeGain(5));
+        findViewById(R.id.gainP1).setOnClickListener(v -> nudgeGain(1));
+        gainVal.setOnEditorActionListener((tv, a, e) -> { applyGain(readGain()); return false; });
+        gainVal.setOnFocusChangeListener((vv, h) -> { if (!h) applyGain(readGain()); });
         findViewById(R.id.back).setOnClickListener(v -> finish());
 
         TextView info = (TextView) findViewById(R.id.info);
@@ -73,8 +80,25 @@ public class SettingsActivity extends Activity {
         speedBtn.setText("Hız: " + String.valueOf(svc.getSpeed()) + "x");
         int sm = svc.getSleepMin();
         sleepBtn.setText("Uyku: " + (sm == 0 ? "Kapalı" : sm + " dk"));
-        int mb = svc.getGainMb();
-        gainBtn.setText("Ses yükselt: " + (mb == 0 ? "Kapalı" : "+" + (mb / 100) + " dB"));
+        if (!gainVal.hasFocus()) gainVal.setText(fmtGain(svc.getGainDb()));
+    }
+
+    private float readGain() {
+        try { return Float.parseFloat(gainVal.getText().toString().trim().replace(',', '.')); }
+        catch (Exception e) { return (svc != null) ? svc.getGainDb() : 0f; }
+    }
+
+    private void applyGain(float db) {
+        if (svc != null) svc.setGainDb(db);
+        gainVal.setText(fmtGain(db));
+        gainVal.clearFocus();
+    }
+
+    private void nudgeGain(float d) { applyGain(readGain() + d); }
+
+    private static String fmtGain(float d) {
+        if (d == Math.rint(d)) return String.valueOf((int) d);
+        return String.format(java.util.Locale.US, "%.1f", d);
     }
 
     private void styleButton(Button b) {

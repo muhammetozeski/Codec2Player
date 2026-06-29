@@ -4,7 +4,6 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.PlaybackParams;
-import android.media.audiofx.LoudnessEnhancer;
 import android.os.Build;
 
 /**
@@ -31,8 +30,9 @@ public final class PlayerEngine {
     private volatile boolean alive = true;
     private volatile int level = 0;       // 0..32767 anlik genlik
     private float speed = 1f;
-    private LoudnessEnhancer loud;
-    private int gainMb = 0;
+    private float gainDb = 0f;
+    private volatile float gainFactor = 1f;
+    private final short[] gbuf = new short[CHUNK];
     private AudioTrack track;
     private Thread thread;
 
@@ -44,7 +44,6 @@ public final class PlayerEngine {
         track = new AudioTrack(AudioManager.STREAM_MUSIC, HZ,
                 AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
                 bufSize, AudioTrack.MODE_STREAM);
-        try { loud = new LoudnessEnhancer(track.getAudioSessionId()); } catch (Exception ignore) {}
         thread = new Thread(new Runnable() {
             @Override public void run() { loop(); }
         }, "c2-playback");
@@ -64,14 +63,25 @@ public final class PlayerEngine {
                 continue;
             }
             int n = Math.min(CHUNK, total - pos);
-            track.write(pcm, pos, n);
-            // anlik genlik
+            float gf = gainFactor;
+            if (gf != 1f) {
+                for (int i = 0; i < n; i++) {
+                    int v = (int) (pcm[pos + i] * gf);
+                    if (v > 32767) v = 32767; else if (v < -32768) v = -32768;
+                    gbuf[i] = (short) v;
+                }
+                track.write(gbuf, 0, n);
+            } else {
+                track.write(pcm, pos, n);
+            }
+            // anlik genlik (kazanc uygulanmis)
             int peak = 0;
             int end = pos + n;
             for (int i = pos; i < end; i += 8) {
-                int v = pcm[i]; if (v < 0) v = -v;
+                int v = (int) (pcm[i] * gf); if (v < 0) v = -v;
                 if (v > peak) peak = v;
             }
+            if (peak > 32767) peak = 32767;
             level = peak;
             pos += n;
             if (listener != null) listener.onProgress(pos, total);
@@ -122,11 +132,10 @@ public final class PlayerEngine {
         }
     }
 
-    public int getGainMb() { return gainMb; }
-    public void setGainMb(int mb) {
-        gainMb = mb;
-        try { if (loud != null) { loud.setTargetGain(mb); loud.setEnabled(mb > 0); } }
-        catch (Exception ignore) {}
+    public float getGainDb() { return gainDb; }
+    public void setGainDb(float db) {
+        gainDb = db;
+        gainFactor = (float) Math.pow(10.0, db / 20.0);   // dB -> dogrusal; negatif=kisma, sinirsiz
     }
 
     /** @param fraction 0..1 */
@@ -152,7 +161,6 @@ public final class PlayerEngine {
         alive = false;
         playing = false;
         try { thread.join(300); } catch (InterruptedException ignore) {}
-        try { if (loud != null) loud.release(); } catch (Throwable ignore) {}
         try { track.stop(); } catch (Throwable ignore) {}
         track.release();
     }
