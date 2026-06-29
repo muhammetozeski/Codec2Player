@@ -82,6 +82,9 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         total = (TextView) findViewById(R.id.total);
         listHeader = (TextView) findViewById(R.id.listHeader);
         list = (ListView) findViewById(R.id.list);
+        TextView emptyHint = (TextView) findViewById(R.id.emptyHint);
+        emptyHint.setText("Henüz dosya yok.\n\n\"Dosya Ekle\", \"Klasör Ekle\" ya da\n\"Ses dosyasını C2'ye çevir\" ile başla.");
+        list.setEmptyView(emptyHint);
         nowPlaying.setSelected(true);   // uzun ad icin marquee kaysin
 
         startBackgroundAnimation();
