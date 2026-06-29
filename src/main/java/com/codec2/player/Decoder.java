@@ -45,6 +45,23 @@ public final class Decoder {
         return r;
     }
 
+    /** Tam cozmeden sure (sn): baslik (varsa) + dosya boyutundan hesaplar. -1 = bilinmiyor. */
+    public static int quickDuration(byte[] head, long size) {
+        if (size <= 0) return -1;
+        int offset = 0, mode = Codec2.MODE_1300;
+        int hm = Codec2.headerMode(head);
+        if (hm >= 0) { mode = hm; offset = Codec2.HEADER_SIZE; }
+        long c2 = Codec2.create(mode);
+        if (c2 == 0) return -1;
+        int spf = Codec2.samplesPerFrame(c2);
+        int bpf = Codec2.bytesPerFrame(c2);
+        Codec2.destroy(c2);
+        if (spf <= 0 || bpf <= 0) return -1;
+        long frames = (size - offset) / bpf;
+        if (frames <= 0) return -1;
+        return (int) (frames * spf / 8000);
+    }
+
     /** Dalga formu icin tepe degerleri (0..1), buckets adet. */
     public static float[] peaks(short[] pcm, int buckets) {
         float[] p = new float[buckets];

@@ -50,6 +50,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     private PlaybackService svc;
     private boolean bound = false, resumed = false;
     private final ArrayList<Uri> pendingOpen = new ArrayList<>();
+    private volatile boolean scanning = false;
 
     private final ServiceConnection conn = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName n, IBinder b) {
@@ -60,6 +61,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             refreshControls();
             adapter.notifyDataSetChanged();
             processPendingOpen();
+            scanDurations();
         }
         @Override public void onServiceDisconnected(ComponentName n) { bound = false; svc = null; }
     };
@@ -224,7 +226,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         });
     }
-    @Override public void onPlaylistChanged() { post(() -> { adapter.notifyDataSetChanged(); refreshNowPlaying(); updateListHeader(); }); }
+    @Override public void onPlaylistChanged() { post(() -> { adapter.notifyDataSetChanged(); refreshNowPlaying(); updateListHeader(); scanDurations(); }); }
 
     private void refreshControls() {
         if (svc == null) return;
@@ -414,6 +416,52 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             while ((n = in.read(b)) > 0) o.write(b, 0, n);
             return o.toByteArray();
         } finally { in.close(); }
+    }
+
+    // ---------- sure on-hesaplama (tam cozmeden) ----------
+
+    private void scanDurations() {
+        if (svc == null || scanning) return;
+        scanning = true;
+        new Thread(() -> {
+            try {
+                ArrayList<Item> pl = svc.getPlaylist();
+                boolean any = false;
+                for (int i = 0; i < pl.size(); i++) {
+                    Item it = pl.get(i);
+                    if (it.durSec >= 0) continue;
+                    try {
+                        Uri u = Uri.parse(it.uri);
+                        int d = Decoder.quickDuration(readHead(u, 7), querySize(u));
+                        if (d >= 0) { it.durSec = d; any = true; }
+                    } catch (Exception ignore) {}
+                    if (any && (i % 6 == 0)) post(() -> { adapter.notifyDataSetChanged(); updateListHeader(); });
+                }
+                post(() -> { adapter.notifyDataSetChanged(); updateListHeader(); });
+            } finally { scanning = false; }
+        }, "dur-scan").start();
+    }
+
+    private byte[] readHead(Uri u, int n) throws Exception {
+        InputStream in = getContentResolver().openInputStream(u);
+        if (in == null) return new byte[0];
+        try {
+            byte[] b = new byte[n]; int got = 0, r;
+            while (got < n && (r = in.read(b, got, n - got)) > 0) got += r;
+            return (got == n) ? b : java.util.Arrays.copyOf(b, got);
+        } finally { in.close(); }
+    }
+
+    private long querySize(Uri u) {
+        try {
+            android.content.res.AssetFileDescriptor afd = getContentResolver().openAssetFileDescriptor(u, "r");
+            if (afd != null) {
+                long len = afd.getLength();
+                afd.close();
+                if (len != android.content.res.AssetFileDescriptor.UNKNOWN_LENGTH) return len;
+            }
+        } catch (Exception ignore) {}
+        return -1;
     }
 
     // ---------- liste ----------
