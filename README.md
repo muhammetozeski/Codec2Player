@@ -1,10 +1,10 @@
-# Codec2 Oynatıcı 🎙️
+# Codec2 Player 🎙️
 
-**Dünyanın en küçük açık ses codec'i [Codec 2](http://www.rowetel.com/codec2.html)'yi çalan ve _üreten_, ~300 KB kurulu boyutlu, saf-native Android uygulaması.**
+**A pure-native Android app that *plays* and *creates* [Codec 2](http://www.rowetel.com/codec2.html) — the world's smallest open-source voice codec — in about ~300 KB installed.**
 
-Harici kütüphane yok (AndroidX yok, Kotlin yok, Material yok) — sadece `android.*` çekirdeği + tek bir küçük JNI `.so`. Tek ABI (`armeabi-v7a`). Kurulu boyut, bir-iki ekran görüntüsü kadar yer kaplamaz.
+No third-party libraries (no AndroidX, no Kotlin, no Material) — just core `android.*` plus a single small JNI `.so`. Single ABI (`armeabi-v7a`). The whole app installs in roughly the size of a couple of screenshots.
 
-> A pure-native Android player **and encoder** for [Codec 2](http://www.rowetel.com/codec2.html) voice files. No third-party libraries, single ABI, ~300 KB installed.
+> The app's UI is in Turkish, but it's trivial to follow. This README is in English.
 
 <p align="center">
   <img src="screenshots/playing.png" width="30%" />
@@ -14,88 +14,88 @@ Harici kütüphane yok (AndroidX yok, Kotlin yok, Material yok) — sadece `andr
 
 ---
 
-## Codec 2 nedir?
+## What is Codec 2?
 
-Codec 2 (David Rowe, LGPL), insan sesini **450 – 3200 bit/saniye** arasında sıkıştıran açık bir ses codec'idir. Ne kadar küçük? Bu uygulamada **3 dakikalık bir şarkı, 450 modunda ~14 KB**'a iniyor. Telsiz/uydu/düşük-bant ses iletişimi ve arşivleme için biçilmiş kaftan.
+[Codec 2](http://www.rowetel.com/codec2.html) (by David Rowe, LGPL) compresses human speech to **450 – 3200 bits per second**. How small is that? In this app, a **3-minute song shrinks to ~14 KB** in the 450 mode. It's built for radio/satellite/low-bandwidth voice and tiny voice archives.
 
-## ✨ Özellikler
+## ✨ Features
 
-**Oynatma**
-- Çoklu dosya çalma listesi; dokun-oynat, otomatik sonraki
-- Tek ışıyan oynat/duraklat butonu (nabız + ilerleme halkası)
-- Dokunup sürüklenerek sarılan **dalga formu**, geçen/toplam süre
-- ⏮ ⏭ ileri/geri; uzun-bas ile **±10 sn** sarma; "geri" 3 sn sonra başa sarar
-- Karıştır; **3 durumlu tekrar** (kapalı / tümü / tekli)
-- **Oynatma hızı** 0.75×–2×
-- **Ses kazancı** (dB) — sınırsız, negatif olabilir, serbest değer
-- **Uyku zamanlayıcısı** (15/30/60 dk)
-- **Kaldığı yerden devam** (parça + konum kalıcı)
-- Mod dosya başlığından **otomatik algılanır** (3200…450); modlar renk rozetli
+**Playback**
+- Multi-file playlist; tap to play, auto-advance
+- One glowing play/pause button (pulse + circular progress ring)
+- Touch-and-drag **waveform** scrubber, elapsed / total time
+- ⏮ ⏭ prev/next; long-press to seek **±10 s**; "prev" restarts the track after 3 s
+- Shuffle; **3-state repeat** (off / all / one)
+- **Playback speed** 0.75×–2×
+- **Audio gain** (dB) — unlimited, can go negative, free-form value
+- **Sleep timer** (15/30/60 min)
+- **Resume** where you left off (track + position persisted)
+- Mode is **auto-detected** from the file header (3200…450); colour-coded badges
 
-**Arka plan & bildirim**
-- Foreground **Service** + MediaSession (kilit ekranı / kulaklık tuşları)
-- Bildirimden önceki/oynat-duraklat/sonraki; **ön plana gelince bildirim kalkar**
-- Pil: yalnız çalarken wakelock; kulaklık çıkınca otomatik duraklat
+**Background & notification**
+- Foreground **Service** + MediaSession (lock screen / headset buttons)
+- Notification prev/play-pause/next; **notification hides when app is foregrounded**
+- Battery: wakelock only while playing; auto-pause when headphones are unplugged
 
-**Dosya & dönüştürme**
-- SAF ile dosya/çoklu-dosya ekleme; klasörü **özyinelemeli** tarama (izin gerektirmez)
-- `.c2` dosyalarını **dışarıdan açma** (tekli ve çoklu intent-filter) → listeye al + çal
-- **Herhangi bir sesi `.c2`'ye çevir** (mp3/aac/m4a/opus/ogg/wav/flac…) — cihazın
-  kendi codec'leriyle (MediaCodec), **harici kütüphane yok**. Boyut↔kalite modu seçilir,
-  dönüştürülen dosya orijinalin yanına yazılır (çakışırsa numaralandırılır)
-- **WAV olarak paylaş**: `.c2`'yi normal WAV'a çözüp paylaşır (kendi mini ContentProvider'ı)
-- Liste sırasını değiştirme + uzun-bas menüsü (silme yok); **Bilgi** ekranında boyut
-- Canlı **Günlük/Konsol** ekranı (dönüştürme adımlarını yazar)
+**Files & conversion**
+- Add files / multiple files via SAF; **recursively** scan a folder (no permission needed)
+- **Open `.c2` files from outside** (single & multiple intent-filters) → added to the list and played
+- **Convert any audio to `.c2`** (mp3/aac/m4a/opus/ogg/wav/flac…) using the device's own
+  codecs (MediaCodec) — **no external library**. Pick a size↔quality mode; the output is
+  written next to the original (auto-numbered on collision)
+- **Share as WAV**: decodes `.c2` back to a normal WAV and shares it (tiny built-in ContentProvider)
+- Reorder the list + long-press menu (no delete); **Info** dialog shows file size
+- Live **Log / Console** screen (prints conversion steps)
 
-**Tasarım** — animasyonlu gradyan arka plan, ışıyan/nabız atan kontroller, mavi↔mor yumuşak
-renk geçişi, çalan satıra renk şeridi, marquee uzun ad, basışta ölçek animasyonu, mod-renkli
-etiketler — hepsi kütüphanesiz, saf canvas/animator ile.
+**Design** — animated gradient background, glowing/pulsing controls, smooth blue↔pink colour
+shift, accent stripe on the playing row, marquee for long names, press-scale animation,
+mode-coloured labels — all library-free, pure canvas/animator.
 
-## 📦 Neden bu kadar küçük?
+## 📦 Why is it so small?
 
-| Parça | Boyut |
+| Part | Size |
 |---|---|
 | `libcodec2player.so` (armeabi-v7a, encode+decode) | ~263 KB |
-| `classes.dex` (tüm uygulama) | ~10 KB |
-| res + manifest + imza | ~3 KB |
-| **Toplam ≈ kurulu boyut** | **~300 KB** |
+| `classes.dex` (the whole app) | ~10 KB |
+| res + manifest + signature | ~3 KB |
+| **Total ≈ installed size** | **~300 KB** |
 
-- **Sadece codec2 ses çekirdeği** derlendi; FreeDV telsiz modemleri (OFDM/COHPSK/FSK/FDMDV)
-  ve LDPC tabloları (`H_*.c`, MB'larca) **alınmadı**. Encode kodu, codebook verisinin yanında
-  neredeyse bedava (decode-only `.so` 268.544 → encode+decode 268.800 byte).
-- **`extractNativeLibs=false`** → `.so` APK'dan mmap edilir, kuruluda kopyalanmaz.
-- **`android:debuggable="true"`** → `run-from-apk`; sistem `dex2oat` ile `oat` üretmez,
-  kurulu boyut ≈ APK. (Kişisel kullanım için; mağaza dağıtımına önerilmez.)
-- Tek ABI, R8 + `shrinkResources`, v1-only EC imza.
+- **Only the Codec 2 voice core** is compiled; the FreeDV radio modems (OFDM/COHPSK/FSK/FDMDV)
+  and the LDPC tables (`H_*.c`, megabytes) are **left out**. Encode is essentially free on top of
+  decode (decode-only `.so` 268,544 B → encode+decode 268,800 B).
+- **`extractNativeLibs=false`** → the `.so` is mmap'd from the APK, not copied on install.
+- **`android:debuggable="true"`** → `run-from-apk`; the system skips `dex2oat`/`oat`, so installed
+  size ≈ APK size. (Personal-use trick; not recommended for store distribution.)
+- Single ABI, R8 + `shrinkResources`, v1-only EC signature.
 
-## 🔨 Derleme
+## 🔨 Building
 
-Standart bir Android projesidir (AGP 8.0.2, compileSdk 33, minSdk 21).
+It's a standard Android project (AGP 8.0.2, compileSdk 33, minSdk 21):
 
 ```bash
 ./gradlew assembleRelease
 ```
 
-Bu depo, taşınabilir araç zinciriyle (JDK + SDK + Gradle) **çevrimdışı** derleyen
-`Derle.ps1` betiğinden türetildi; o betik ayrıca `zipalign -p` + `apksigner` (v1-only, EC)
-uygular ve kurulu boyutu minimumda tutan ayarları içerir.
+It was developed with a portable, **offline** toolchain (bundled JDK + SDK + Gradle) driven by a
+`Derle.ps1` script that also runs `zipalign -p` + `apksigner` (v1-only, EC) and applies the
+minimal-installed-size settings above.
 
-### Native `.so` nasıl üretildi?
+### How the native `.so` is built
 
-`libcodec2player.so`, [Codec 2](https://github.com/drowe67/codec2) 1.0.x kaynağının **yalnız ses
-alt kümesi** + `src/main/cpp/Codec2JNI.c` JNI köprüsü ile NDK clang'da (tek ABI, `-O2`,
-`--gc-sections`) derlenip strip edilir. Codebook `.c` dosyaları `.txt`'den üretilir
-(`native/gen_cb.py`). Adımlar `native/build_jni.ps1` içinde. (Codec 2 kaynağı upstream'den
-alınır; bu depo derlenmiş `.so`'yu içerir.)
+`libcodec2player.so` is the **voice-only subset** of [Codec 2](https://github.com/drowe67/codec2)
+1.0.x plus the JNI bridge in `src/main/cpp/Codec2JNI.c`, compiled with NDK clang (single ABI,
+`-O2`, `--gc-sections`) and stripped. Codebook `.c` files are generated from `.txt`
+(`native/gen_cb.py`). The steps live in `native/build_jni.ps1`. (The Codec 2 source itself comes
+from upstream; this repo ships the prebuilt `.so`.)
 
-## 📜 Lisans
+## 📜 License
 
-- Uygulama kaynağı (bu deponun özgün kodu): **MIT** — `LICENSE`.
-- Paketlenen **`libcodec2player.so`**, Codec 2'den türemiştir: **LGPL-2.1**, © David Rowe ve katkıcılar.
-  Codec 2: <https://github.com/drowe67/codec2>
+- Application source (the original code in this repo): **MIT** — see `LICENSE`.
+- The bundled **`libcodec2player.so`** is derived from Codec 2 and is licensed under
+  **LGPL-2.1**, © David Rowe and contributors — <https://github.com/drowe67/codec2>.
 
-## 🙏 Teşekkür
+## 🙏 Credits
 
-- **David Rowe** ve Codec 2 ekibi — codec'in kendisi.
-- `.c2` dosya başlığı (`C0 DE C2 …`) ve JNI yaklaşımı için referans:
-  [Codec2Recorder](https://github.com/scuttlebutt-tr/Codec2Recorder) projesi.
+- **David Rowe** and the Codec 2 team — the codec itself.
+- The `.c2` file header (`C0 DE C2 …`) and the JNI approach were referenced from the
+  [Codec2Recorder](https://github.com/scuttlebutt-tr/Codec2Recorder) project.
