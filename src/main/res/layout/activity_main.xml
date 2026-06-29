@@ -11,7 +11,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
-        android:text="Codec2 Oynatici"
+        android:text="Codec2 Oynatıcı"
         android:textColor="#EAF2FF"
         android:textSize="22sp"
         android:textStyle="bold"
@@ -25,7 +25,7 @@
         android:gravity="center"
         android:singleLine="true"
         android:ellipsize="middle"
-        android:text="Bir dosya sec ya da ekle"
+        android:text="Bir dosya seç ya da ekle"
         android:textColor="#9FB3CC"
         android:textSize="14sp" />
 
@@ -93,13 +93,13 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Karistir: Kapali" />
+            android:text="Karıştır: Kapalı" />
         <Button
             android:id="@+id/repeat"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Tekrar: Kapali" />
+            android:text="Tekrar: Kapalı" />
     </LinearLayout>
 
     <LinearLayout
@@ -117,14 +117,14 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Klasor Ekle" />
+            android:text="Klasör Ekle" />
     </LinearLayout>
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Calma listesi"
+        android:text="Çalma listesi"
         android:textColor="#7C8DA6"
         android:textSize="12sp"
         android:letterSpacing="0.1" />
@@ -136,6 +136,8 @@
         android:layout_weight="1"
         android:divider="#1F2A3A"
         android:dividerHeight="1dp"
+        android:paddingBottom="10dp"
+        android:clipToPadding="false"
         android:scrollbarStyle="outsideOverlay" />
 
 </LinearLayout>

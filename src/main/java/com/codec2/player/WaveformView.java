@@ -25,7 +25,7 @@ public class WaveformView extends View {
 
     public WaveformView(Context c, AttributeSet a) {
         super(c, a);
-        base.setColor(0x33A8C0FF);
+        base.setColor(0x22394F66);
         head.setColor(Color.WHITE);
         head.setStrokeWidth(3f);
     }
@@ -62,8 +62,9 @@ public class WaveformView extends View {
             Paint p = (x <= playedX) ? played : base;
             cv.drawRoundRect(x + bw * 0.15f, mid - bh, x + bw * 0.85f, mid + bh, bw * 0.3f, bw * 0.3f, p);
         }
-        // oynatma kafasi
-        cv.drawLine(playedX, 0, playedX, h, head);
+        // oynatma kafasi (dalga yuksekligiyle sinirli, tasmaz)
+        float top = h * 0.12f, bot = h * 0.88f;
+        cv.drawLine(playedX, top, playedX, bot, head);
         cv.drawCircle(playedX, mid, 7f, head);
     }
 

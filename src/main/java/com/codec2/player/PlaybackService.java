@@ -283,13 +283,13 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
                 ? new Notification.Builder(this, CHANNEL)
                 : new Notification.Builder(this);
         b.setSmallIcon(android.R.drawable.ic_media_play)
-                .setContentTitle("Codec2 Oynatici")
+                .setContentTitle(getString(R.string.app_name))
                 .setContentText(title)
                 .setContentIntent(content)
                 .setOngoing(playing)
                 .setVisibility(Notification.VISIBILITY_PUBLIC);
 
-        b.addAction(new Notification.Action.Builder(android.R.drawable.ic_media_previous, "Onceki", svcPI(ACT_PREV, 1)).build());
+        b.addAction(new Notification.Action.Builder(android.R.drawable.ic_media_previous, "Önceki", svcPI(ACT_PREV, 1)).build());
         b.addAction(new Notification.Action.Builder(
                 playing ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
                 playing ? "Duraklat" : "Oynat", svcPI(ACT_TOGGLE, 2)).build());

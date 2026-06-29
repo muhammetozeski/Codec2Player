@@ -22,7 +22,7 @@
         android:hardwareAccelerated="false"
         android:vmSafeMode="true"
         android:extractNativeLibs="false"
-        android:label="Codec2 Oynatici"
+        android:label="@string/app_name"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
         <activity

@@ -43,6 +43,9 @@ android {
             useLegacyPackaging false
         }
     }
+    compileOptions {
+        encoding = 'UTF-8'
+    }
     namespace 'com.codec2.player'
 }
 
