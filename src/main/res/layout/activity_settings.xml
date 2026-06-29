@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/settingsRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0B1118"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="Ayarlar"
+            android:textColor="#EAF2FF"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:paddingBottom="18dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Oynatma"
+            android:textColor="#7C8DA6"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:paddingBottom="4dp" />
+
+        <Button
+            android:id="@+id/shuffle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Karıştır: Kapalı" />
+        <Button
+            android:id="@+id/repeat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Tekrar: Kapalı" />
+        <Button
+            android:id="@+id/speed"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Hız: 1.0x" />
+        <Button
+            android:id="@+id/sleep"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Uyku: Kapalı" />
+
+        <TextView
+            android:id="@+id/info"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:text=""
+            android:textColor="#5E6E86"
+            android:textSize="12sp"
+            android:lineSpacingExtra="3dp" />
+
+        <Button
+            android:id="@+id/back"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="Geri" />
+
+    </LinearLayout>
+</ScrollView>

@@ -4,47 +4,57 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="18dp">
+    android:padding="16dp">
 
-    <TextView
-        android:id="@+id/title"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:text="Codec2 Oynatıcı"
-        android:textColor="#EAF2FF"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.08" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:text="Codec2 Oynatıcı"
+            android:textColor="#EAF2FF"
+            android:textSize="19sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.03" />
+        <Button
+            android:id="@+id/settings"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:singleLine="true"
+            android:text="Ayarlar"
+            android:textSize="12sp" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/nowPlaying"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="4dp"
         android:gravity="center"
         android:singleLine="true"
         android:ellipsize="middle"
         android:text="Bir dosya seç ya da ekle"
         android:textColor="#9FB3CC"
-        android:textSize="14sp" />
-
-    <com.codec2.player.SpectrumView
-        android:id="@+id/spectrum"
-        android:layout_width="match_parent"
-        android:layout_height="108dp"
-        android:layout_marginTop="10dp" />
+        android:textSize="13sp" />
 
     <com.codec2.player.WaveformView
         android:id="@+id/wave"
         android:layout_width="match_parent"
-        android:layout_height="84dp"
-        android:layout_marginTop="6dp" />
+        android:layout_height="54dp"
+        android:layout_marginTop="8dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="2dp"
         android:orientation="horizontal">
         <TextView
             android:id="@+id/elapsed"
@@ -53,7 +63,7 @@
             android:layout_weight="1"
             android:text="0:00"
             android:textColor="#C9D6E8"
-            android:textSize="13sp" />
+            android:textSize="12sp" />
         <TextView
             android:id="@+id/total"
             android:layout_width="0dp"
@@ -62,13 +72,13 @@
             android:gravity="end"
             android:text="0:00"
             android:textColor="#C9D6E8"
-            android:textSize="13sp" />
+            android:textSize="12sp" />
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="6dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
         <Button
@@ -79,33 +89,14 @@
             android:text="|&lt;&lt;" />
         <com.codec2.player.GlowButton
             android:id="@+id/playBtn"
-            android:layout_width="108dp"
-            android:layout_height="108dp" />
+            android:layout_width="92dp"
+            android:layout_height="92dp" />
         <Button
             android:id="@+id/next"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="&gt;&gt;|" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:orientation="horizontal">
-        <Button
-            android:id="@+id/shuffle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Karıştır: Kapalı" />
-        <Button
-            android:id="@+id/repeat"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Tekrar: Kapalı" />
     </LinearLayout>
 
     <LinearLayout
@@ -134,7 +125,7 @@
         android:text="Çalma listesi"
         android:textColor="#7C8DA6"
         android:textSize="12sp"
-        android:letterSpacing="0.1" />
+        android:letterSpacing="0.08" />
 
     <ListView
         android:id="@+id/list"
@@ -143,7 +134,7 @@
         android:layout_weight="1"
         android:divider="#1F2A3A"
         android:dividerHeight="1dp"
-        android:paddingBottom="10dp"
+        android:paddingBottom="8dp"
         android:clipToPadding="false"
         android:scrollbarStyle="outsideOverlay" />
 

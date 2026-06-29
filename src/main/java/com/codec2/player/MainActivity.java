@@ -41,11 +41,9 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private LinearLayout root;
     private WaveformView wave;
-    private SpectrumView spectrum;
     private GlowButton playBtn;
     private TextView nowPlaying, elapsed, total, listHeader;
     private ListView list;
-    private Button shuffleBtn, repeatBtn;
     private Adapter adapter;
 
     private PlaybackService svc;
@@ -72,18 +70,15 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
 
         root = (LinearLayout) findViewById(R.id.root);
         wave = (WaveformView) findViewById(R.id.wave);
-        spectrum = (SpectrumView) findViewById(R.id.spectrum);
         playBtn = (GlowButton) findViewById(R.id.playBtn);
         nowPlaying = (TextView) findViewById(R.id.nowPlaying);
         elapsed = (TextView) findViewById(R.id.elapsed);
         total = (TextView) findViewById(R.id.total);
         listHeader = (TextView) findViewById(R.id.listHeader);
         list = (ListView) findViewById(R.id.list);
-        shuffleBtn = (Button) findViewById(R.id.shuffle);
-        repeatBtn = (Button) findViewById(R.id.repeat);
 
         startBackgroundAnimation();
-        for (int id : new int[]{R.id.prev, R.id.next, R.id.shuffle, R.id.repeat, R.id.addFiles, R.id.addFolder})
+        for (int id : new int[]{R.id.prev, R.id.next, R.id.settings, R.id.addFiles, R.id.addFolder})
             styleButton((Button) findViewById(id));
 
         adapter = new Adapter();
@@ -94,8 +89,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         playBtn.setOnClickListener(v -> { if (svc != null) svc.toggle(); });
         findViewById(R.id.prev).setOnClickListener(v -> { if (svc != null) svc.playIndex(svc.neighbor(-1)); });
         findViewById(R.id.next).setOnClickListener(v -> { if (svc != null) svc.playIndex(svc.neighbor(+1)); });
-        shuffleBtn.setOnClickListener(v -> { if (svc != null) { svc.setShuffle(!svc.isShuffle()); refreshControls(); } });
-        repeatBtn.setOnClickListener(v -> { if (svc != null) { svc.cycleRepeat(); refreshControls(); } });
+        findViewById(R.id.settings).setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.addFiles).setOnClickListener(v -> pickFiles());
         findViewById(R.id.addFolder).setOnClickListener(v -> pickFolder());
         wave.setSeekListener(f -> { if (svc != null) svc.seekFraction(f); });
@@ -227,9 +221,6 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
 
     private void refreshControls() {
         if (svc == null) return;
-        shuffleBtn.setText("Karıştır: " + (svc.isShuffle() ? "Açık" : "Kapalı"));
-        String[] rl = {"Kapalı", "Tümü", "Tekli"};
-        repeatBtn.setText("Tekrar: " + rl[svc.getRepeatMode()]);
         playBtn.setPlaying(svc.isPlaying());
         refreshNowPlaying();
         updateListHeader();
@@ -303,7 +294,6 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                 wave.setProgress(frac);
                 wave.setLevel(lvl);
                 wave.invalidate();
-                spectrum.setLevel(lvl);
                 playBtn.setProgress(frac);
                 elapsed.setText(fmt(pos / HZ));
                 if (tot > 0) total.setText(fmt(tot / HZ));
@@ -429,7 +419,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                 row = new LinearLayout(MainActivity.this);
                 row.setOrientation(LinearLayout.VERTICAL);
                 int pad = dp(12);
-                row.setPadding(pad, dp(10), pad, dp(10));
+                row.setPadding(pad, dp(8), pad, dp(8));
                 TextView t1 = new TextView(MainActivity.this); t1.setId(android.R.id.text1);
                 t1.setTextSize(15); t1.setSingleLine(true);
                 TextView t2 = new TextView(MainActivity.this); t2.setId(android.R.id.text2);
@@ -441,7 +431,8 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             boolean cur = (p == svc.getCurrent());
             TextView t1 = (TextView) row.findViewById(android.R.id.text1);
             TextView t2 = (TextView) row.findViewById(android.R.id.text2);
-            t1.setText((cur ? ">  " : "") + it.name);
+            String nm = (it.name == null || it.name.isEmpty()) ? "(adsız)" : it.name;
+            t1.setText((cur ? ">  " : "") + nm);
             t1.setTextColor(cur ? 0xFF8FE3FF : 0xFFE6EEF8);
             String sub = (p + 1) + " / " + pl.size();
             if (it.mode >= 0) sub += "   |   " + modeLabel(it.mode);

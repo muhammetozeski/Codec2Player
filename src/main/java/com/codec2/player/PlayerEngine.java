@@ -3,6 +3,8 @@ package com.codec2.player;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.media.PlaybackParams;
+import android.os.Build;
 
 /**
  * PCM (8 kHz mono 16-bit) oynatma motoru. Tam sarma (seek), oynat/duraklat,
@@ -27,6 +29,7 @@ public final class PlayerEngine {
     private volatile boolean playing = false;
     private volatile boolean alive = true;
     private volatile int level = 0;       // 0..32767 anlik genlik
+    private float speed = 1f;
     private AudioTrack track;
     private Thread thread;
 
@@ -105,6 +108,15 @@ public final class PlayerEngine {
     public int totalSamples() { return total; }
     public int level() { return level; }
     public int sampleRate() { return HZ; }
+    public float getSpeed() { return speed; }
+
+    public void setSpeed(float s) {
+        speed = s;
+        if (Build.VERSION.SDK_INT >= 23) {
+            try { track.setPlaybackParams(new PlaybackParams().setSpeed(s)); }
+            catch (Exception ignore) {}
+        }
+    }
 
     /** @param fraction 0..1 */
     public void seekFraction(float fraction) {

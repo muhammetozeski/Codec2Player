@@ -54,6 +54,11 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     private int repeatMode = 0; // 0 kapalı, 1 tümü, 2 tekli
     private final Random rnd = new Random();
     private android.content.BroadcastReceiver noisy;
+    private int sleepMin = 0;
+    private final android.os.Handler sleepH = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable sleepR = new Runnable() {
+        @Override public void run() { stopPlayback(); sleepMin = 0; if (cb != null) cb.onStateChanged(false); }
+    };
     private PlayerEngine engine;
     private Callback cb;
     private boolean uiVisible = false;
@@ -68,6 +73,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         engine = new PlayerEngine(this);
         shuffle = prefs.getBoolean("shuffle", false);
         repeatMode = prefs.getInt("repeatMode", 0);
+        engine.setSpeed(prefs.getFloat("speed", 1f));
         loadPlaylist();
         createChannel();
         setupSession();
@@ -112,6 +118,27 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
 
     public void setShuffle(boolean s) { shuffle = s; prefs.edit().putBoolean("shuffle", s).apply(); }
     public void cycleRepeat() { repeatMode = (repeatMode + 1) % 3; prefs.edit().putInt("repeatMode", repeatMode).apply(); }
+
+    public float getSpeed() { return engine.getSpeed(); }
+    public void cycleSpeed() {
+        float[] sp = {1f, 1.25f, 1.5f, 2f, 0.75f};
+        float cur = engine.getSpeed();
+        int idx = 0;
+        for (int i = 0; i < sp.length; i++) if (Math.abs(sp[i] - cur) < 0.01f) { idx = i; break; }
+        float ns = sp[(idx + 1) % sp.length];
+        engine.setSpeed(ns);
+        prefs.edit().putFloat("speed", ns).apply();
+    }
+
+    public int getSleepMin() { return sleepMin; }
+    public void cycleSleep() {
+        int[] opts = {0, 15, 30, 60};
+        int idx = 0;
+        for (int i = 0; i < opts.length; i++) if (opts[i] == sleepMin) { idx = i; break; }
+        sleepMin = opts[(idx + 1) % opts.length];
+        sleepH.removeCallbacks(sleepR);
+        if (sleepMin > 0) sleepH.postDelayed(sleepR, sleepMin * 60000L);
+    }
 
     public int indexOfUri(String uri) {
         if (uri == null) return -1;
@@ -354,20 +381,25 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     private void loadPlaylist() {
         String s = prefs.getString("list", "");
         if (s.isEmpty()) return;
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        boolean cleaned = false;
         for (String line : s.split("\n")) {
             if (line.isEmpty()) continue;
             int t = line.indexOf('\t');
             Item it = new Item();
             if (t > 0) { it.uri = line.substring(0, t); it.name = line.substring(t + 1); }
             else { it.uri = line; it.name = line; }
-            playlist.add(it);
+            if (seen.add(it.uri)) playlist.add(it);   // tekrarlari at
+            else cleaned = true;
         }
+        if (cleaned) savePlaylist();                   // temizlenmis listeyi kalici yaz
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
         releaseWake();
+        sleepH.removeCallbacks(sleepR);
         try { if (noisy != null) unregisterReceiver(noisy); } catch (Exception ignore) {}
         if (session != null) session.release();
         if (engine != null) engine.release();
