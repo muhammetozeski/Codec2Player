@@ -44,6 +44,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     private GlowButton playBtn;
     private TextView nowPlaying, elapsed, total, listHeader;
     private ListView list;
+    private Button shuffleMini, repeatMini;
     private Adapter adapter;
 
     private PlaybackService svc;
@@ -80,6 +81,12 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         startBackgroundAnimation();
         for (int id : new int[]{R.id.prev, R.id.next, R.id.settings, R.id.addFiles, R.id.addFolder})
             styleButton((Button) findViewById(id));
+        shuffleMini = (Button) findViewById(R.id.shuffleMini);
+        repeatMini = (Button) findViewById(R.id.repeatMini);
+        styleMini(shuffleMini);
+        styleMini(repeatMini);
+        shuffleMini.setOnClickListener(v -> { if (svc != null) { svc.setShuffle(!svc.isShuffle()); refreshControls(); } });
+        repeatMini.setOnClickListener(v -> { if (svc != null) { svc.cycleRepeat(); refreshControls(); } });
 
         adapter = new Adapter();
         list.setAdapter(adapter);
@@ -222,6 +229,11 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     private void refreshControls() {
         if (svc == null) return;
         playBtn.setPlaying(svc.isPlaying());
+        boolean sh = svc.isShuffle();
+        shuffleMini.setTextColor(sh ? 0xFF8FE3FF : 0xFF7C8DA6);
+        int rm = svc.getRepeatMode();
+        repeatMini.setText(rm == 0 ? "Tekrar" : (rm == 1 ? "Tekrar: Tümü" : "Tekrar: Tekli"));
+        repeatMini.setTextColor(rm == 0 ? 0xFF7C8DA6 : 0xFF8FE3FF);
         refreshNowPlaying();
         updateListHeader();
     }
@@ -458,6 +470,21 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             g.setColors(new int[]{ blend(0xFF0B1118, 0xFF132034, f), blend(0xFF161226, 0xFF0E2233, f), 0xFF0A0F16 });
         });
         va.start();
+    }
+
+    private void styleMini(Button b) {
+        GradientDrawable g = new GradientDrawable();
+        g.setCornerRadius(dp(12));
+        g.setColor(0x10FFFFFF);
+        g.setStroke(dp(1), 0x2AA8C8FF);
+        b.setBackground(g);
+        b.setAllCaps(false);
+        b.setPadding(dp(16), dp(6), dp(16), dp(6));
+        if (b.getLayoutParams() instanceof LinearLayout.LayoutParams) {
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) b.getLayoutParams();
+            lp.setMargins(dp(6), 0, dp(6), 0);
+            b.setLayoutParams(lp);
+        }
     }
 
     private void styleButton(Button b) {
