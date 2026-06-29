@@ -68,6 +68,13 @@
             android:lineSpacingExtra="3dp" />
 
         <Button
+            android:id="@+id/log"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Günlük / Konsol" />
+
+        <Button
             android:id="@+id/back"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

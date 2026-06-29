@@ -142,6 +142,13 @@
             android:text="Klasör Ekle" />
     </LinearLayout>
 
+    <Button
+        android:id="@+id/convert"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Ses dosyasını C2'ye çevir"
+        android:textSize="13sp" />
+
     <TextView
         android:id="@+id/listHeader"
         android:layout_width="match_parent"

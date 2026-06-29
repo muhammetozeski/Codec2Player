@@ -38,8 +38,9 @@ public class SettingsActivity extends Activity {
         speedBtn = (Button) findViewById(R.id.speed);
         sleepBtn = (Button) findViewById(R.id.sleep);
         gainBtn = (Button) findViewById(R.id.gain);
-        for (int id : new int[]{R.id.shuffle, R.id.repeat, R.id.speed, R.id.sleep, R.id.gain, R.id.back})
+        for (int id : new int[]{R.id.shuffle, R.id.repeat, R.id.speed, R.id.sleep, R.id.gain, R.id.log, R.id.back})
             styleButton((Button) findViewById(id));
+        findViewById(R.id.log).setOnClickListener(v -> startActivity(new Intent(this, LogActivity.class)));
 
         shuffleBtn.setOnClickListener(v -> { if (svc != null) { svc.setShuffle(!svc.isShuffle()); refresh(); } });
         repeatBtn.setOnClickListener(v -> { if (svc != null) { svc.cycleRepeat(); refresh(); } });

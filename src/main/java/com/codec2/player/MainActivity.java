@@ -36,6 +36,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
 
     private static final int REQ_FILES = 11;
     private static final int REQ_FOLDER = 12;
+    private static final int REQ_CONVERT = 13;
     private static final int HZ = 8000;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -83,7 +84,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         nowPlaying.setSelected(true);   // uzun ad icin marquee kaysin
 
         startBackgroundAnimation();
-        for (int id : new int[]{R.id.prev, R.id.next, R.id.settings, R.id.addFiles, R.id.addFolder})
+        for (int id : new int[]{R.id.prev, R.id.next, R.id.settings, R.id.addFiles, R.id.addFolder, R.id.convert})
             styleButton((Button) findViewById(id));
         shuffleMini = (Button) findViewById(R.id.shuffleMini);
         repeatMini = (Button) findViewById(R.id.repeatMini);
@@ -109,6 +110,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         findViewById(R.id.settings).setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.addFiles).setOnClickListener(v -> pickFiles());
         findViewById(R.id.addFolder).setOnClickListener(v -> pickFolder());
+        findViewById(R.id.convert).setOnClickListener(v -> pickConvert());
         wave.setSeekListener(f -> { if (svc != null) svc.seekFraction(f); });
 
         handleOpenIntent(getIntent());
@@ -410,7 +412,68 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                 final ArrayList<Item> found = scanTree(tree);
                 post(() -> { svc.addItems(found); toast(found.size() + " c2 dosyası bulundu"); refreshNowPlaying(); });
             }, "scan").start();
+
+        } else if (req == REQ_CONVERT) {
+            final Uri u = data.getData();
+            if (u != null) showConvertDialog(u);
         }
+    }
+
+    // ---------- ses dosyasini c2'ye cevir ----------
+
+    private void pickConvert() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("audio/*");
+        startActivityForResult(i, REQ_CONVERT);
+    }
+
+    private void showConvertDialog(final Uri u) {
+        final String[] labels = {"3200 — en kaliteli (en büyük)", "1300 — dengeli", "700C — küçük", "450 — en küçük"};
+        final int[] modes = {0, 4, 8, 10};
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("C2 modu  (boyut ↔ kalite)")
+                .setItems(labels, (d, w) -> convert(u, modes[w]))
+                .show();
+    }
+
+    private void convert(final Uri u, final int mode) {
+        Log2.clear();
+        Log2.add("=== Ses → C2 dönüştürme ===");
+        Log2.add("Kaynak: " + queryName(u));
+        Log2.add("Hedef mod: " + modeLabel(mode));
+        startActivity(new Intent(this, LogActivity.class));   // canli gunlugu ac
+        new Thread(() -> {
+            try {
+                Log2.add("Çözülüyor (cihazın kendi codec'i)...");
+                long t0 = android.os.SystemClock.elapsedRealtime();
+                short[] pcm = AudioDecoder.decodeTo8kMono(MainActivity.this, u);
+                if (pcm == null || pcm.length == 0) { Log2.add("HATA: ses çözülemedi"); return; }
+                Log2.add("PCM 8 kHz mono: " + pcm.length + " örnek (~" + (pcm.length / 8000) + " sn)");
+                Log2.add("codec2 ile kodlanıyor...");
+                byte[] c2 = Encoder.encodeToC2(pcm, mode);
+                if (c2 == null) { Log2.add("HATA: kodlanamadı"); return; }
+                java.io.File dir = new java.io.File(getExternalFilesDir(null), "converted");
+                dir.mkdirs();
+                String base = queryName(u);
+                int dot = base.lastIndexOf('.');
+                if (dot > 0) base = base.substring(0, dot);
+                final java.io.File out = new java.io.File(dir, base + ".c2");
+                java.io.FileOutputStream fos = new java.io.FileOutputStream(out);
+                fos.write(c2); fos.close();
+                final int kb = Math.max(1, c2.length / 1024);
+                long dt = android.os.SystemClock.elapsedRealtime() - t0;
+                Log2.add("Yazıldı: " + out.getName() + "  (" + kb + " KB, " + dt + " ms)");
+                post(() -> {
+                    if (svc != null) {
+                        ArrayList<Item> items = new ArrayList<>();
+                        items.add(new Item(Uri.fromFile(out).toString(), out.getName()));
+                        svc.addItems(items);
+                    }
+                });
+                Log2.add("Listeye eklendi.  ✓ BİTTİ");
+            } catch (Exception e) { Log2.add("HATA: " + e); }
+        }).start();
     }
 
     private ArrayList<Item> scanTree(Uri tree) {
