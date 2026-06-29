@@ -26,6 +26,7 @@ public final class Codec2 {
     public static native int  bytesPerFrame(long con);
     public static native void destroy(long con);
     public static native void decode(long con, byte[] bits, short[] outPcm);
+    public static native void encode(long con, short[] pcm, byte[] bits);
 
     /** Baslik varsa modu dondurur, yoksa -1. */
     public static int headerMode(byte[] a) {

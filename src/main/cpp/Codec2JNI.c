@@ -35,12 +35,22 @@ static void c2_decode(JNIEnv *env, jclass clazz, jlong n, jbyteArray inBits, jsh
     (*env)->ReleaseByteArrayElements(env, inBits, b, JNI_ABORT);
 }
 
+static void c2_encode(JNIEnv *env, jclass clazz, jlong n, jshortArray inPcm, jbyteArray outBits) {
+    struct CODEC2 *c = (struct CODEC2 *)(uintptr_t) n;
+    jshort *s = (*env)->GetShortArrayElements(env, inPcm, 0);
+    jbyte  *b = (*env)->GetByteArrayElements(env, outBits, 0);
+    codec2_encode(c, (unsigned char *) b, (short *) s);
+    (*env)->ReleaseByteArrayElements(env, outBits, b, 0);          /* 0: geri yaz */
+    (*env)->ReleaseShortArrayElements(env, inPcm, s, JNI_ABORT);
+}
+
 static JNINativeMethod methods[] = {
     { "create",          "(I)J",     (void *) c2_create  },
     { "samplesPerFrame", "(J)I",     (void *) c2_spf     },
     { "bytesPerFrame",   "(J)I",     (void *) c2_bytes   },
     { "destroy",         "(J)V",     (void *) c2_destroy },
     { "decode",          "(J[B[S)V", (void *) c2_decode  },
+    { "encode",          "(J[S[B)V", (void *) c2_encode  },
 };
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
