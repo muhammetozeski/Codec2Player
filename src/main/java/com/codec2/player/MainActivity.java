@@ -37,6 +37,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     private static final int REQ_FILES = 11;
     private static final int REQ_FOLDER = 12;
     private static final int REQ_CONVERT = 13;
+    private static final int REQ_PERM = 21;
     private static final int HZ = 8000;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -209,15 +210,28 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     }
 
     private void showInfo(Item it) {
+        long size = -1;
+        try { size = querySize(Uri.parse(it.uri)); } catch (Exception ignore) {}
         String msg = "Ad: " + it.name
                 + "\nMod: " + (it.mode >= 0 ? modeLabel(it.mode) : "?")
                 + "\nSüre: " + (it.durSec >= 0 ? fmt(it.durSec) : "?")
+                + "\nBoyut: " + humanSize(size)
                 + "\nKaynak: " + it.uri;
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle("Bilgi")
                 .setMessage(msg)
                 .setPositiveButton("Tamam", null)
                 .show();
+    }
+
+    private static String humanSize(long b) {
+        if (b < 0) return "?";
+        if (b < 1024) return b + " byte";
+        String[] u = {"KB", "MB", "GB", "TB"};
+        double s = b / 1024.0;
+        int i = 0;
+        while (s >= 1024 && i < u.length - 1) { s /= 1024; i++; }
+        return String.format(java.util.Locale.forLanguageTag("tr"), "%.2f %s", s, u[i]);
     }
 
     @Override
@@ -422,10 +436,26 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     // ---------- ses dosyasini c2'ye cevir ----------
 
     private void pickConvert() {
+        if (android.os.Build.VERSION.SDK_INT >= 23 && android.os.Build.VERSION.SDK_INT <= 28
+                && checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_PERM);
+        } else {
+            launchConvertPicker();
+        }
+    }
+
+    private void launchConvertPicker() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
         i.setType("audio/*");
         startActivityForResult(i, REQ_CONVERT);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int req, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(req, perms, res);
+        if (req == REQ_PERM) launchConvertPicker();
     }
 
     private void showConvertDialog(final Uri u) {
@@ -453,27 +483,63 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                 Log2.add("codec2 ile kodlanıyor...");
                 byte[] c2 = Encoder.encodeToC2(pcm, mode);
                 if (c2 == null) { Log2.add("HATA: kodlanamadı"); return; }
-                java.io.File dir = new java.io.File(getExternalFilesDir(null), "converted");
-                dir.mkdirs();
                 String base = queryName(u);
                 int dot = base.lastIndexOf('.');
                 if (dot > 0) base = base.substring(0, dot);
-                final java.io.File out = new java.io.File(dir, base + ".c2");
-                java.io.FileOutputStream fos = new java.io.FileOutputStream(out);
+                java.io.File dir = resolveDir(u);
+                if (dir != null && dir.canWrite()) {
+                    Log2.add("Hedef klasör: " + dir.getAbsolutePath() + "  (orijinalin yanı)");
+                } else {
+                    dir = new java.io.File(getExternalFilesDir(null), "converted");
+                    dir.mkdirs();
+                    Log2.add("Orijinal klasöre yazılamadı; uygulama klasörü: " + dir.getAbsolutePath());
+                }
+                java.io.File out = new java.io.File(dir, base + ".c2");
+                int kk = 1;
+                while (out.exists()) { out = new java.io.File(dir, base + " (" + kk + ").c2"); kk++; }
+                final java.io.File outF = out;
+                java.io.FileOutputStream fos = new java.io.FileOutputStream(outF);
                 fos.write(c2); fos.close();
                 final int kb = Math.max(1, c2.length / 1024);
                 long dt = android.os.SystemClock.elapsedRealtime() - t0;
-                Log2.add("Yazıldı: " + out.getName() + "  (" + kb + " KB, " + dt + " ms)");
+                Log2.add("Yazıldı: " + outF.getName() + "  (" + kb + " KB, " + dt + " ms)");
                 post(() -> {
                     if (svc != null) {
                         ArrayList<Item> items = new ArrayList<>();
-                        items.add(new Item(Uri.fromFile(out).toString(), out.getName()));
+                        items.add(new Item(Uri.fromFile(outF).toString(), outF.getName()));
                         svc.addItems(items);
                     }
                 });
                 Log2.add("Listeye eklendi.  ✓ BİTTİ");
             } catch (Exception e) { Log2.add("HATA: " + e); }
         }).start();
+    }
+
+    /** Kaynak uri'nin gercek klasoru (orijinalin yani). Cozulemezse null. */
+    private java.io.File resolveDir(Uri u) {
+        try {
+            if ("file".equals(u.getScheme()) && u.getPath() != null)
+                return new java.io.File(u.getPath()).getParentFile();
+            if (android.provider.DocumentsContract.isDocumentUri(this, u)) {
+                String docId = android.provider.DocumentsContract.getDocumentId(u);
+                int c = docId.indexOf(':');
+                if (c > 0 && "primary".equalsIgnoreCase(docId.substring(0, c))) {
+                    java.io.File f = new java.io.File(android.os.Environment.getExternalStorageDirectory(),
+                            docId.substring(c + 1));
+                    return f.getParentFile();
+                }
+            }
+        } catch (Exception ignore) {}
+        android.database.Cursor cur = null;
+        try {
+            cur = getContentResolver().query(u, new String[]{"_data"}, null, null, null);
+            if (cur != null && cur.moveToFirst()) {
+                String p = cur.getString(0);
+                if (p != null) return new java.io.File(p).getParentFile();
+            }
+        } catch (Exception ignore) {
+        } finally { if (cur != null) cur.close(); }
+        return null;
     }
 
     private ArrayList<Item> scanTree(Uri tree) {
