@@ -48,6 +48,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
 
     private PlaybackService svc;
     private boolean bound = false, resumed = false;
+    private final ArrayList<Uri> pendingOpen = new ArrayList<>();
 
     private final ServiceConnection conn = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName n, IBinder b) {
@@ -57,6 +58,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             if (resumed) svc.setUiVisible(true);
             refreshControls();
             adapter.notifyDataSetChanged();
+            processPendingOpen();
         }
         @Override public void onServiceDisconnected(ComponentName n) { bound = false; svc = null; }
     };
@@ -92,6 +94,46 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         findViewById(R.id.addFiles).setOnClickListener(v -> pickFiles());
         findViewById(R.id.addFolder).setOnClickListener(v -> pickFolder());
         wave.setSeekListener(f -> { if (svc != null) svc.seekFraction(f); });
+
+        handleOpenIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleOpenIntent(intent);
+    }
+
+    /** Disaridan "ac" / "paylas" ile gelen .c2 dosyalarini listeye al ve cal. */
+    private void handleOpenIntent(Intent intent) {
+        if (intent == null) return;
+        String action = intent.getAction();
+        if (action == null) return;
+        ArrayList<Uri> uris = new ArrayList<>();
+        if (Intent.ACTION_VIEW.equals(action)) {
+            if (intent.getData() != null) uris.add(intent.getData());
+        } else if (Intent.ACTION_SEND.equals(action)) {
+            Object p = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            if (p instanceof Uri) uris.add((Uri) p);
+        } else if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
+            ArrayList<? extends android.os.Parcelable> ps = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+            if (ps != null) for (android.os.Parcelable p : ps) if (p instanceof Uri) uris.add((Uri) p);
+        }
+        if (uris.isEmpty()) return;
+        pendingOpen.addAll(uris);
+        if (svc != null) processPendingOpen();
+    }
+
+    private void processPendingOpen() {
+        if (svc == null || pendingOpen.isEmpty()) return;
+        int firstIndex = svc.getPlaylist().size();
+        ArrayList<Item> items = new ArrayList<>();
+        for (Uri u : pendingOpen) { persist(u); items.add(new Item(u.toString(), queryName(u))); }
+        pendingOpen.clear();
+        svc.addItems(items);
+        svc.playIndex(firstIndex);
+        toast(items.size() + " dosya acildi");
     }
 
     @Override
