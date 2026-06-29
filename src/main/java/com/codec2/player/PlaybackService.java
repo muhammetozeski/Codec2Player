@@ -420,10 +420,18 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         } finally { in.close(); }
     }
 
+    public void persist() { savePlaylist(); }
+
     private void savePlaylist() {
         StringBuilder sb = new StringBuilder();
-        for (Item it : playlist) sb.append(it.uri).append('\t').append(it.name).append('\n');
+        for (Item it : playlist)
+            sb.append(it.uri).append('\t').append(it.name).append('\t')
+              .append(it.mode).append('\t').append(it.durSec).append('\n');
         prefs.edit().putString("list", sb.toString()).apply();
+    }
+
+    private static int parseIntSafe(String s, int def) {
+        try { return Integer.parseInt(s.trim()); } catch (Exception e) { return def; }
     }
 
     private void loadPlaylist() {
@@ -433,10 +441,11 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         boolean cleaned = false;
         for (String line : s.split("\n")) {
             if (line.isEmpty()) continue;
-            int t = line.indexOf('\t');
+            String[] f = line.split("\t", -1);
             Item it = new Item();
-            if (t > 0) { it.uri = line.substring(0, t); it.name = line.substring(t + 1); }
-            else { it.uri = line; it.name = line; }
+            it.uri = f[0];
+            it.name = (f.length > 1 && !f[1].isEmpty()) ? f[1] : f[0];
+            if (f.length >= 4) { it.mode = parseIntSafe(f[2], -1); it.durSec = parseIntSafe(f[3], -1); }
             // bozuk/adsiz girdileri at (eski deneme artiklari)
             if (it.uri == null || it.uri.isEmpty() || it.name == null || it.name.trim().isEmpty()) { cleaned = true; continue; }
             if (seen.add(it.uri)) playlist.add(it);   // tekrarlari at
