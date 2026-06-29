@@ -432,8 +432,12 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             }, "scan").start();
 
         } else if (req == REQ_CONVERT) {
-            final Uri u = data.getData();
-            if (u != null) showConvertDialog(u);
+            ArrayList<Uri> uris = new ArrayList<>();
+            if (data.getClipData() != null)
+                for (int k = 0; k < data.getClipData().getItemCount(); k++)
+                    uris.add(data.getClipData().getItemAt(k).getUri());
+            else if (data.getData() != null) uris.add(data.getData());
+            if (!uris.isEmpty()) showConvertDialog(uris);
         }
     }
 
@@ -453,6 +457,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
         i.setType("audio/*");
+        i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);   // toplu donusturme
         startActivityForResult(i, REQ_CONVERT);
     }
 
@@ -462,61 +467,64 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         if (req == REQ_PERM) launchConvertPicker();
     }
 
-    private void showConvertDialog(final Uri u) {
+    private void showConvertDialog(final ArrayList<Uri> uris) {
         final String[] labels = {"3200 — en kaliteli (en büyük)", "1300 — dengeli", "700C — küçük", "450 — en küçük"};
         final int[] modes = {0, 4, 8, 10};
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("C2 modu  (boyut ↔ kalite)")
-                .setItems(labels, (d, w) -> convert(u, modes[w]))
+                .setTitle(uris.size() + " dosya · C2 modu (boyut ↔ kalite)")
+                .setItems(labels, (d, w) -> convertAll(uris, modes[w]))
                 .show();
     }
 
-    private void convert(final Uri u, final int mode) {
+    private void convertAll(final ArrayList<Uri> uris, final int mode) {
         Log2.clear();
-        Log2.add("=== Ses → C2 dönüştürme ===");
-        Log2.add("Kaynak: " + queryName(u));
-        Log2.add("Hedef mod: " + modeLabel(mode));
+        Log2.add("=== Ses → C2 dönüştürme (" + uris.size() + " dosya · mod " + modeLabel(mode) + ") ===");
         startActivity(new Intent(this, LogActivity.class));   // canli gunlugu ac
         new Thread(() -> {
-            try {
-                Log2.add("Çözülüyor (cihazın kendi codec'i)...");
-                long t0 = android.os.SystemClock.elapsedRealtime();
-                short[] pcm = AudioDecoder.decodeTo8kMono(MainActivity.this, u);
-                if (pcm == null || pcm.length == 0) { Log2.add("HATA: ses çözülemedi"); return; }
-                Log2.add("PCM 8 kHz mono: " + pcm.length + " örnek (~" + (pcm.length / 8000) + " sn)");
-                Log2.add("codec2 ile kodlanıyor...");
-                byte[] c2 = Encoder.encodeToC2(pcm, mode);
-                if (c2 == null) { Log2.add("HATA: kodlanamadı"); return; }
-                String base = queryName(u);
-                int dot = base.lastIndexOf('.');
-                if (dot > 0) base = base.substring(0, dot);
-                java.io.File dir = resolveDir(u);
-                if (dir != null && dir.canWrite()) {
-                    Log2.add("Hedef klasör: " + dir.getAbsolutePath() + "  (orijinalin yanı)");
-                } else {
-                    dir = new java.io.File(getExternalFilesDir(null), "converted");
-                    dir.mkdirs();
-                    Log2.add("Orijinal klasöre yazılamadı; uygulama klasörü: " + dir.getAbsolutePath());
+            int ok = 0;
+            for (int i = 0; i < uris.size(); i++) {
+                Log2.add("");
+                Log2.add("[" + (i + 1) + "/" + uris.size() + "] " + queryName(uris.get(i)));
+                if (convertOne(uris.get(i), mode)) ok++;
+            }
+            Log2.add("");
+            Log2.add("✓ BİTTİ: " + ok + "/" + uris.size() + " başarılı");
+        }, "convert").start();
+    }
+
+    /** Tek dosyayi cevirir; basariliysa true. Arka plan thread'inde cagrilir. */
+    private boolean convertOne(Uri u, int mode) {
+        try {
+            Log2.add("Çözülüyor (cihazın kendi codec'i)...");
+            long t0 = android.os.SystemClock.elapsedRealtime();
+            short[] pcm = AudioDecoder.decodeTo8kMono(MainActivity.this, u);
+            if (pcm == null || pcm.length == 0) { Log2.add("HATA: ses çözülemedi"); return false; }
+            Log2.add("PCM 8 kHz mono: " + pcm.length + " örnek (~" + (pcm.length / 8000) + " sn)");
+            byte[] c2 = Encoder.encodeToC2(pcm, mode);
+            if (c2 == null) { Log2.add("HATA: kodlanamadı"); return false; }
+            String base = queryName(u);
+            int dot = base.lastIndexOf('.');
+            if (dot > 0) base = base.substring(0, dot);
+            java.io.File dir = resolveDir(u);
+            if (dir != null && dir.canWrite()) Log2.add("Klasör: " + dir.getAbsolutePath() + "  (orijinalin yanı)");
+            else { dir = new java.io.File(getExternalFilesDir(null), "converted"); dir.mkdirs(); Log2.add("Klasör: " + dir.getAbsolutePath() + "  (uygulama)"); }
+            java.io.File out = new java.io.File(dir, base + ".c2");
+            int kk = 1;
+            while (out.exists()) { out = new java.io.File(dir, base + " (" + kk + ").c2"); kk++; }
+            final java.io.File outF = out;
+            java.io.FileOutputStream fos = new java.io.FileOutputStream(outF);
+            fos.write(c2); fos.close();
+            long dt = android.os.SystemClock.elapsedRealtime() - t0;
+            Log2.add("✓ " + outF.getName() + "  (" + Math.max(1, c2.length / 1024) + " KB, " + dt + " ms)");
+            post(() -> {
+                if (svc != null) {
+                    ArrayList<Item> items = new ArrayList<>();
+                    items.add(new Item(Uri.fromFile(outF).toString(), outF.getName()));
+                    svc.addItems(items);
                 }
-                java.io.File out = new java.io.File(dir, base + ".c2");
-                int kk = 1;
-                while (out.exists()) { out = new java.io.File(dir, base + " (" + kk + ").c2"); kk++; }
-                final java.io.File outF = out;
-                java.io.FileOutputStream fos = new java.io.FileOutputStream(outF);
-                fos.write(c2); fos.close();
-                final int kb = Math.max(1, c2.length / 1024);
-                long dt = android.os.SystemClock.elapsedRealtime() - t0;
-                Log2.add("Yazıldı: " + outF.getName() + "  (" + kb + " KB, " + dt + " ms)");
-                post(() -> {
-                    if (svc != null) {
-                        ArrayList<Item> items = new ArrayList<>();
-                        items.add(new Item(Uri.fromFile(outF).toString(), outF.getName()));
-                        svc.addItems(items);
-                    }
-                });
-                Log2.add("Listeye eklendi.  ✓ BİTTİ");
-            } catch (Exception e) { Log2.add("HATA: " + e); }
-        }).start();
+            });
+            return true;
+        } catch (Exception e) { Log2.add("HATA: " + e); return false; }
     }
 
     /** Kaynak uri'nin gercek klasoru (orijinalin yani). Cozulemezse null. */
