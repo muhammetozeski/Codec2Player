@@ -1,6 +1,7 @@
 package com.codec2.player;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -85,6 +86,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         adapter = new Adapter();
         list.setAdapter(adapter);
         list.setOnItemClickListener((p, v, pos, idv) -> { if (svc != null) svc.playIndex(pos); });
+        list.setOnItemLongClickListener((p, v, pos, idv) -> { showItemMenu(pos); return true; });
 
         playBtn.setOnClickListener(v -> { if (svc != null) svc.toggle(); });
         findViewById(R.id.prev).setOnClickListener(v -> { if (svc != null) svc.playIndex(svc.neighbor(-1)); });
@@ -133,7 +135,43 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         pendingOpen.clear();
         svc.addItems(items);
         svc.playIndex(firstIndex);
-        toast(items.size() + " dosya acildi");
+        toast(items.size() + " dosya açıldı");
+    }
+
+    // ---------- uzun bas menüsü (silme YOK) ----------
+
+    private void showItemMenu(final int pos) {
+        if (svc == null) return;
+        final ArrayList<Item> pl = svc.getPlaylist();
+        if (pos < 0 || pos >= pl.size()) return;
+        final Item it = pl.get(pos);
+        final int size = pl.size();
+        final String[] opts = {"Buradan oynat", "Yukarı taşı", "Aşağı taşı", "Başa al", "Sona al", "Bilgi"};
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(it.name)
+                .setItems(opts, (d, w) -> {
+                    switch (w) {
+                        case 0: svc.playIndex(pos); break;
+                        case 1: svc.moveItem(pos, Math.max(0, pos - 1)); break;
+                        case 2: svc.moveItem(pos, Math.min(size - 1, pos + 1)); break;
+                        case 3: svc.moveItem(pos, 0); break;
+                        case 4: svc.moveItem(pos, size - 1); break;
+                        case 5: showInfo(it); break;
+                    }
+                })
+                .show();
+    }
+
+    private void showInfo(Item it) {
+        String msg = "Ad: " + it.name
+                + "\nMod: " + (it.mode >= 0 ? modeLabel(it.mode) : "?")
+                + "\nSüre: " + (it.durSec >= 0 ? fmt(it.durSec) : "?")
+                + "\nKaynak: " + it.uri;
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Bilgi")
+                .setMessage(msg)
+                .setPositiveButton("Tamam", null)
+                .show();
     }
 
     @Override
@@ -179,8 +217,8 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
 
     private void refreshControls() {
         if (svc == null) return;
-        shuffleBtn.setText("Karistir: " + (svc.isShuffle() ? "Acik" : "Kapali"));
-        repeatBtn.setText("Tekrar: " + (svc.isRepeat() ? "Acik" : "Kapali"));
+        shuffleBtn.setText("Karıştır: " + (svc.isShuffle() ? "Açık" : "Kapalı"));
+        repeatBtn.setText("Tekrar: " + (svc.isRepeat() ? "Açık" : "Kapalı"));
         playBtn.setPlaying(svc.isPlaying());
         refreshNowPlaying();
     }
@@ -191,13 +229,28 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         ArrayList<Item> pl = svc.getPlaylist();
         if (c >= 0 && c < pl.size()) {
             Item it = pl.get(c);
-            String t = it.name;
-            if (it.mode >= 0) t += "   |   " + modeLabel(it.mode);
-            if (it.durSec >= 0) t += "   |   " + fmt(it.durSec);
-            nowPlaying.setText(t);
+            ArrayList<String> parts = new ArrayList<>();
+            parts.add(it.name);
+            if (it.mode >= 0) parts.add(modeLabel(it.mode));
+            if (it.durSec >= 0) parts.add(fmt(it.durSec));
+            nowPlaying.setText(joinDim(parts));
         } else {
-            nowPlaying.setText(pl.isEmpty() ? "Bir dosya sec ya da ekle" : "Hazir");
+            nowPlaying.setText(pl.isEmpty() ? "Bir dosya seç ya da ekle" : "Hazır");
         }
+    }
+
+    /** parcalari soluk ortanokta ayiricilarla birlestir. */
+    private CharSequence joinDim(ArrayList<String> parts) {
+        android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
+        for (int i = 0; i < parts.size(); i++) {
+            if (i > 0) {
+                int s = sb.length();
+                sb.append("   ·   ");
+                sb.setSpan(new android.text.style.ForegroundColorSpan(0xFF46566E), s, sb.length(), 0);
+            }
+            sb.append(parts.get(i));
+        }
+        return sb;
     }
 
     private float[] pendingPeaks;
@@ -269,10 +322,10 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         } else if (req == REQ_FOLDER) {
             final Uri tree = data.getData();
             persist(tree);
-            nowPlaying.setText("Klasor taraniyor...");
+            nowPlaying.setText("Klasör taranıyor...");
             new Thread(() -> {
                 final ArrayList<Item> found = scanTree(tree);
-                post(() -> { svc.addItems(found); toast(found.size() + " c2 bulundu"); refreshNowPlaying(); });
+                post(() -> { svc.addItems(found); toast(found.size() + " c2 dosyası bulundu"); refreshNowPlaying(); });
             }, "scan").start();
         }
     }
