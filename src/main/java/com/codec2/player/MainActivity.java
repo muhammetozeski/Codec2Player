@@ -41,6 +41,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private LinearLayout root;
     private WaveformView wave;
+    private SpectrumView spectrum;
     private GlowButton playBtn;
     private TextView nowPlaying, elapsed, total, listHeader;
     private ListView list;
@@ -71,6 +72,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
 
         root = (LinearLayout) findViewById(R.id.root);
         wave = (WaveformView) findViewById(R.id.wave);
+        spectrum = (SpectrumView) findViewById(R.id.spectrum);
         playBtn = (GlowButton) findViewById(R.id.playBtn);
         nowPlaying = (TextView) findViewById(R.id.nowPlaying);
         elapsed = (TextView) findViewById(R.id.elapsed);
@@ -296,9 +298,13 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         @Override public void run() {
             if (svc != null) {
                 int pos = svc.positionSamples(), tot = svc.totalSamples();
-                wave.setProgress(tot > 0 ? pos / (float) tot : 0f);
-                wave.setLevel(svc.level() / 32768f);
+                float frac = tot > 0 ? pos / (float) tot : 0f;
+                float lvl = svc.level() / 32768f;
+                wave.setProgress(frac);
+                wave.setLevel(lvl);
                 wave.invalidate();
+                spectrum.setLevel(lvl);
+                playBtn.setProgress(frac);
                 elapsed.setText(fmt(pos / HZ));
                 if (tot > 0) total.setText(fmt(tot / HZ));
                 playBtn.setPlaying(svc.isPlaying());

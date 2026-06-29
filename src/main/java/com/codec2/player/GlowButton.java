@@ -17,10 +17,12 @@ public class GlowButton extends View {
 
     private boolean playing = false;
     private float pulse = 0f;     // 0..1 isima nabzi
-    private float colorT = 0f;    // 0..1 renk gecisi (ping-pong, ani siçrama yok)
+    private float colorT = 0f;    // 0..1 renk gecisi (ping-pong)
+    private float progress = 0f;  // 0..1 oynatma ilerlemesi (halka)
     private final Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint disc = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint prog = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint icon = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private ValueAnimator pulseAnim, colorAnim;
@@ -30,6 +32,8 @@ public class GlowButton extends View {
         icon.setColor(Color.WHITE);
         ring.setStyle(Paint.Style.STROKE);
         ring.setColor(0x55FFFFFF);
+        prog.setStyle(Paint.Style.STROKE);
+        prog.setStrokeCap(Paint.Cap.ROUND);
         setClickable(true);
 
         pulseAnim = ValueAnimator.ofFloat(0f, 1f);
@@ -58,6 +62,8 @@ public class GlowButton extends View {
     }
 
     public void setPlaying(boolean p) { playing = p; invalidate(); }
+
+    public void setProgress(float p) { progress = p < 0 ? 0 : (p > 1 ? 1 : p); }
 
     private int accent() {
         // mavi (~205) <-> pembe/magenta (~325) arasi yumusak gidip gelir
@@ -91,6 +97,15 @@ public class GlowButton extends View {
 
         ring.setStrokeWidth(r * 0.06f);
         cv.drawCircle(cx, cy, r, ring);
+
+        // oynatma ilerleme halkasi (disin disinda yay)
+        if (progress > 0f) {
+            float rr = r * 1.14f;
+            prog.setStrokeWidth(r * 0.08f);
+            prog.setColor(lighten(ac));
+            android.graphics.RectF oval = new android.graphics.RectF(cx - rr, cy - rr, cx + rr, cy + rr);
+            cv.drawArc(oval, -90f, progress * 360f, false, prog);
+        }
 
         float s = r * 0.5f;
         path.reset();
