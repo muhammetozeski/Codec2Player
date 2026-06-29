@@ -455,8 +455,11 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                     if (it.durSec >= 0) continue;
                     try {
                         Uri u = Uri.parse(it.uri);
-                        int d = Decoder.quickDuration(readHead(u, 7), querySize(u));
+                        byte[] head = readHead(u, 7);
+                        int d = Decoder.quickDuration(head, querySize(u));
                         if (d >= 0) { it.durSec = d; any = true; }
+                        int hm = Codec2.headerMode(head);
+                        if (hm >= 0 && it.mode < 0) { it.mode = hm; any = true; }
                     } catch (Exception ignore) {}
                     if (any && (i % 6 == 0)) post(() -> { adapter.notifyDataSetChanged(); updateListHeader(); });
                 }
@@ -500,14 +503,20 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             if (cv instanceof LinearLayout) row = (LinearLayout) cv;
             else {
                 row = new LinearLayout(MainActivity.this);
-                row.setOrientation(LinearLayout.VERTICAL);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                View bar = new View(MainActivity.this);
+                bar.setLayoutParams(new LinearLayout.LayoutParams(dp(3), LinearLayout.LayoutParams.MATCH_PARENT));
+                row.addView(bar);
+                LinearLayout col = new LinearLayout(MainActivity.this);
+                col.setOrientation(LinearLayout.VERTICAL);
                 int pad = dp(12);
-                row.setPadding(pad, dp(8), pad, dp(8));
+                col.setPadding(pad, dp(8), pad, dp(8));
                 TextView t1 = new TextView(MainActivity.this); t1.setId(android.R.id.text1);
                 t1.setTextSize(15); t1.setSingleLine(true);
                 TextView t2 = new TextView(MainActivity.this); t2.setId(android.R.id.text2);
                 t2.setTextSize(12); t2.setTextColor(0xFF8597AD);
-                row.addView(t1); row.addView(t2);
+                col.addView(t1); col.addView(t2);
+                row.addView(col);
             }
             ArrayList<Item> pl = svc.getPlaylist();
             Item it = pl.get(p);
@@ -528,6 +537,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             if (it.durSec >= 0) { sub.append("   ·   "); sub.append(fmt(it.durSec)); }
             t2.setText(sub);
             row.setBackgroundColor(cur ? 0x223A6EA5 : 0x00000000);
+            row.getChildAt(0).setBackgroundColor(cur ? modeColor(it.mode >= 0 ? it.mode : 4) : 0x00000000);
             return row;
         }
     }
@@ -549,6 +559,17 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         va.start();
     }
 
+    private void addPressScale(final View v) {
+        v.setOnTouchListener((vv, e) -> {
+            int a = e.getActionMasked();
+            if (a == android.view.MotionEvent.ACTION_DOWN)
+                vv.animate().scaleX(0.95f).scaleY(0.95f).setDuration(80).start();
+            else if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL)
+                vv.animate().scaleX(1f).scaleY(1f).setDuration(130).start();
+            return false;
+        });
+    }
+
     private void styleMini(Button b) {
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(dp(12));
@@ -562,6 +583,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             lp.setMargins(dp(6), 0, dp(6), 0);
             b.setLayoutParams(lp);
         }
+        addPressScale(b);
     }
 
     private void styleButton(Button b) {
@@ -575,6 +597,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         b.setBackground(g);
         b.setTextColor(0xFFD6E6FB);
         b.setAllCaps(false);
+        addPressScale(b);
     }
 
     private static int blend(int a, int b, float t) {
