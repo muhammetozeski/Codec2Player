@@ -80,6 +80,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         total = (TextView) findViewById(R.id.total);
         listHeader = (TextView) findViewById(R.id.listHeader);
         list = (ListView) findViewById(R.id.list);
+        nowPlaying.setSelected(true);   // uzun ad icin marquee kaysin
 
         startBackgroundAnimation();
         for (int id : new int[]{R.id.prev, R.id.next, R.id.settings, R.id.addFiles, R.id.addFolder})
@@ -219,7 +220,16 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
 
     // ---------- Service.Callback ----------
 
-    @Override public void onTrackChanged(int index) { post(() -> { refreshNowPlaying(); loadWaveform(); adapter.notifyDataSetChanged(); updateListHeader(); }); }
+    @Override public void onTrackChanged(int index) {
+        post(() -> {
+            nowPlaying.setAlpha(0f);
+            refreshNowPlaying();
+            nowPlaying.animate().alpha(1f).setDuration(260).start();
+            loadWaveform();
+            adapter.notifyDataSetChanged();
+            updateListHeader();
+        });
+    }
     @Override public void onStateChanged(boolean playing) {
         post(() -> {
             playBtn.setPlaying(playing);
@@ -258,28 +268,34 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         ArrayList<Item> pl = svc.getPlaylist();
         if (c >= 0 && c < pl.size()) {
             Item it = pl.get(c);
-            ArrayList<String> parts = new ArrayList<>();
-            parts.add(it.name);
-            if (it.mode >= 0) parts.add(modeLabel(it.mode));
-            if (it.durSec >= 0) parts.add(fmt(it.durSec));
-            nowPlaying.setText(joinDim(parts));
+            android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
+            sb.append(it.name);
+            if (it.mode >= 0) {
+                dimSep(sb);
+                int s = sb.length();
+                sb.append(modeLabel(it.mode));
+                sb.setSpan(new android.text.style.ForegroundColorSpan(modeColor(it.mode)), s, sb.length(), 0);
+            }
+            if (it.durSec >= 0) { dimSep(sb); sb.append(fmt(it.durSec)); }
+            nowPlaying.setText(sb);
         } else {
             nowPlaying.setText(pl.isEmpty() ? "Bir dosya seç ya da ekle" : "Hazır");
         }
     }
 
-    /** parcalari soluk ortanokta ayiricilarla birlestir. */
-    private CharSequence joinDim(ArrayList<String> parts) {
-        android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
-        for (int i = 0; i < parts.size(); i++) {
-            if (i > 0) {
-                int s = sb.length();
-                sb.append("   ·   ");
-                sb.setSpan(new android.text.style.ForegroundColorSpan(0xFF46566E), s, sb.length(), 0);
-            }
-            sb.append(parts.get(i));
+    private void dimSep(android.text.SpannableStringBuilder sb) {
+        int s = sb.length();
+        sb.append("   ·   ");
+        sb.setSpan(new android.text.style.ForegroundColorSpan(0xFF46566E), s, sb.length(), 0);
+    }
+
+    private static int modeColor(int mode) {
+        switch (mode) {
+            case 0: return 0xFF7FE0FF; case 1: return 0xFF6FD0FF; case 2: return 0xFF8FB0FF;
+            case 3: return 0xFFA89AFF; case 4: return 0xFFB890F0; case 5: return 0xFFCE8AE0;
+            case 8: return 0xFF80E0B0; case 10: return 0xFFE0A860;
+            default: return 0xFF9FB3CC;
         }
-        return sb;
     }
 
     private float[] pendingPeaks;
@@ -495,9 +511,15 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             String nm = (it.name == null || it.name.isEmpty()) ? "(adsız)" : it.name;
             t1.setText((cur ? ">  " : "") + nm);
             t1.setTextColor(cur ? 0xFF8FE3FF : 0xFFE6EEF8);
-            String sub = (p + 1) + " / " + pl.size();
-            if (it.mode >= 0) sub += "   |   " + modeLabel(it.mode);
-            if (it.durSec >= 0) sub += "   |   " + fmt(it.durSec);
+            android.text.SpannableStringBuilder sub = new android.text.SpannableStringBuilder();
+            sub.append((p + 1) + " / " + pl.size());
+            if (it.mode >= 0) {
+                sub.append("   ·   ");
+                int s = sub.length();
+                sub.append(modeLabel(it.mode));
+                sub.setSpan(new android.text.style.ForegroundColorSpan(modeColor(it.mode)), s, sub.length(), 0);
+            }
+            if (it.durSec >= 0) { sub.append("   ·   "); sub.append(fmt(it.durSec)); }
             t2.setText(sub);
             row.setBackgroundColor(cur ? 0x223A6EA5 : 0x00000000);
             return row;

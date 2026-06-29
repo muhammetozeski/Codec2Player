@@ -40,7 +40,8 @@
         android:layout_marginTop="4dp"
         android:gravity="center"
         android:singleLine="true"
-        android:ellipsize="middle"
+        android:ellipsize="marquee"
+        android:marqueeRepeatLimit="marquee_forever"
         android:text="Bir dosya seç ya da ekle"
         android:textColor="#9FB3CC"
         android:textSize="13sp" />
