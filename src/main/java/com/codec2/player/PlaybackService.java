@@ -389,6 +389,8 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
             Item it = new Item();
             if (t > 0) { it.uri = line.substring(0, t); it.name = line.substring(t + 1); }
             else { it.uri = line; it.name = line; }
+            // bozuk/adsiz girdileri at (eski deneme artiklari)
+            if (it.uri == null || it.uri.isEmpty() || it.name == null || it.name.trim().isEmpty()) { cleaned = true; continue; }
             if (seen.add(it.uri)) playlist.add(it);   // tekrarlari at
             else cleaned = true;
         }
