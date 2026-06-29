@@ -17,7 +17,7 @@ public class SettingsActivity extends Activity {
 
     private PlaybackService svc;
     private boolean bound = false;
-    private Button shuffleBtn, repeatBtn, speedBtn, sleepBtn;
+    private Button shuffleBtn, repeatBtn, speedBtn, sleepBtn, gainBtn;
 
     private final ServiceConnection conn = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName n, IBinder b) {
@@ -37,13 +37,15 @@ public class SettingsActivity extends Activity {
         repeatBtn = (Button) findViewById(R.id.repeat);
         speedBtn = (Button) findViewById(R.id.speed);
         sleepBtn = (Button) findViewById(R.id.sleep);
-        for (int id : new int[]{R.id.shuffle, R.id.repeat, R.id.speed, R.id.sleep, R.id.back})
+        gainBtn = (Button) findViewById(R.id.gain);
+        for (int id : new int[]{R.id.shuffle, R.id.repeat, R.id.speed, R.id.sleep, R.id.gain, R.id.back})
             styleButton((Button) findViewById(id));
 
         shuffleBtn.setOnClickListener(v -> { if (svc != null) { svc.setShuffle(!svc.isShuffle()); refresh(); } });
         repeatBtn.setOnClickListener(v -> { if (svc != null) { svc.cycleRepeat(); refresh(); } });
         speedBtn.setOnClickListener(v -> { if (svc != null) { svc.cycleSpeed(); refresh(); } });
         sleepBtn.setOnClickListener(v -> { if (svc != null) { svc.cycleSleep(); refresh(); } });
+        gainBtn.setOnClickListener(v -> { if (svc != null) { svc.cycleGain(); refresh(); } });
         findViewById(R.id.back).setOnClickListener(v -> finish());
 
         TextView info = (TextView) findViewById(R.id.info);
@@ -70,6 +72,8 @@ public class SettingsActivity extends Activity {
         speedBtn.setText("Hız: " + String.valueOf(svc.getSpeed()) + "x");
         int sm = svc.getSleepMin();
         sleepBtn.setText("Uyku: " + (sm == 0 ? "Kapalı" : sm + " dk"));
+        int mb = svc.getGainMb();
+        gainBtn.setText("Ses yükselt: " + (mb == 0 ? "Kapalı" : "+" + (mb / 100) + " dB"));
     }
 
     private void styleButton(Button b) {

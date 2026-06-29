@@ -51,6 +51,11 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Uyku: Kapalı" />
+        <Button
+            android:id="@+id/gain"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ses yükselt: Kapalı" />
 
         <TextView
             android:id="@+id/info"

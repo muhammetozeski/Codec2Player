@@ -4,6 +4,7 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.PlaybackParams;
+import android.media.audiofx.LoudnessEnhancer;
 import android.os.Build;
 
 /**
@@ -30,6 +31,8 @@ public final class PlayerEngine {
     private volatile boolean alive = true;
     private volatile int level = 0;       // 0..32767 anlik genlik
     private float speed = 1f;
+    private LoudnessEnhancer loud;
+    private int gainMb = 0;
     private AudioTrack track;
     private Thread thread;
 
@@ -41,6 +44,7 @@ public final class PlayerEngine {
         track = new AudioTrack(AudioManager.STREAM_MUSIC, HZ,
                 AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
                 bufSize, AudioTrack.MODE_STREAM);
+        try { loud = new LoudnessEnhancer(track.getAudioSessionId()); } catch (Exception ignore) {}
         thread = new Thread(new Runnable() {
             @Override public void run() { loop(); }
         }, "c2-playback");
@@ -118,6 +122,13 @@ public final class PlayerEngine {
         }
     }
 
+    public int getGainMb() { return gainMb; }
+    public void setGainMb(int mb) {
+        gainMb = mb;
+        try { if (loud != null) { loud.setTargetGain(mb); loud.setEnabled(mb > 0); } }
+        catch (Exception ignore) {}
+    }
+
     /** @param fraction 0..1 */
     public void seekFraction(float fraction) {
         if (total == 0) return;
@@ -141,6 +152,7 @@ public final class PlayerEngine {
         alive = false;
         playing = false;
         try { thread.join(300); } catch (InterruptedException ignore) {}
+        try { if (loud != null) loud.release(); } catch (Throwable ignore) {}
         try { track.stop(); } catch (Throwable ignore) {}
         track.release();
     }
