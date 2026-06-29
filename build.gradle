@@ -1,0 +1,51 @@
+apply plugin: 'com.android.application'
+
+buildscript {
+    repositories {
+        mavenCentral()
+        google()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.0.2'
+    }
+}
+
+allprojects {
+    repositories {
+        mavenCentral()
+        google()
+    }
+}
+
+android {
+    compileSdkVersion 33
+    defaultConfig {
+        applicationId "com.codec2.player"
+        minSdkVersion 21          // NDK (armeabi-v7a) en az API 21 ister; cihaz API 28
+        targetSdkVersion 33
+        versionCode 1
+        versionName "1.0"
+        ndk {
+            abiFilters 'armeabi-v7a'   // tek ABI -> tek .so kopyasi
+        }
+    }
+    buildTypes {
+        release {
+            shrinkResources true
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+    // .so APK icinde sikistirilmadan/sayfa-hizali kalir, kuruluda lib/'e KOPYALANMAZ
+    // (manifest extractNativeLibs=false). Boylece kurulu boyut ~ APK kadar.
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging false
+        }
+    }
+    namespace 'com.codec2.player'
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+}

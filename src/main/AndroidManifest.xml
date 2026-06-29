@@ -1,0 +1,33 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.codec2.player">
+
+    <!--
+      Kucuk KURULU boyutun anahtarlari:
+      - debuggable="true"        -> sistem dex2oat ile odex/vdex/art URETMEZ (run-from-apk),
+                                    kurulu boyut ~ base.apk kadar kalir. (Release lint'i patlar;
+                                    derlemede -x lintVitalRelease ile gecilir.)
+      - vmSafeMode="true"        -> AOT optimizasyonunu kapatir.
+      - hardwareAccelerated="false" -> GPU shader onbellek dosyalari olusmaz.
+      - allowBackup="false"      -> yedekleme veri klasoru ayrilmaz.
+      - extractNativeLibs="false"-> .so kurulumda lib/'e KOPYALANMAZ (APK'dan mmap edilir);
+                                    kurulu boyut sismez.
+    -->
+    <application
+        android:debuggable="true"
+        android:allowBackup="false"
+        android:hardwareAccelerated="false"
+        android:vmSafeMode="true"
+        android:extractNativeLibs="false"
+        android:label="Codec2 Oynatici"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
