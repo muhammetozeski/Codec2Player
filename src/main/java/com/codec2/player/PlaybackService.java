@@ -233,6 +233,16 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
 
     public void seekFraction(float f) { engine.seekFraction(f); updatePlaybackState(); }
 
+    public void seekRelative(int seconds) {
+        int tot = engine.totalSamples();
+        if (tot <= 0) return;
+        int np = engine.positionSamples() + seconds * HZ;
+        if (np < 0) np = 0;
+        if (np >= tot) np = tot - 1;
+        engine.seekFraction(np / (float) tot);
+        updatePlaybackState();
+    }
+
     public void playIndex(final int idx) {
         if (idx < 0 || idx >= playlist.size()) return;
         current = idx;

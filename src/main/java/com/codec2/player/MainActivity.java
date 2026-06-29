@@ -98,8 +98,14 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         list.setOnItemLongClickListener((p, v, pos, idv) -> { showItemMenu(pos); return true; });
 
         playBtn.setOnClickListener(v -> { if (svc != null) svc.toggle(); });
-        findViewById(R.id.prev).setOnClickListener(v -> { if (svc != null) svc.playIndex(svc.neighbor(-1)); });
+        findViewById(R.id.prev).setOnClickListener(v -> {
+            if (svc == null) return;
+            if (svc.positionSamples() > 24000) svc.seekFraction(0f);   // 3 sn'den ilerideyse basa sar
+            else svc.playIndex(svc.neighbor(-1));
+        });
         findViewById(R.id.next).setOnClickListener(v -> { if (svc != null) svc.playIndex(svc.neighbor(+1)); });
+        findViewById(R.id.prev).setOnLongClickListener(v -> { if (svc != null) svc.seekRelative(-10); return true; });
+        findViewById(R.id.next).setOnLongClickListener(v -> { if (svc != null) svc.seekRelative(10); return true; });
         findViewById(R.id.settings).setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.addFiles).setOnClickListener(v -> pickFiles());
         findViewById(R.id.addFolder).setOnClickListener(v -> pickFolder());
