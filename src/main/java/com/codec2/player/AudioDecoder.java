@@ -120,5 +120,31 @@ public final class AudioDecoder {
         }
     }
 
+    /** Sure (mikrosaniye), cozmeden (MediaExtractor format'indan). Bulunamazsa 0. */
+    public static long durationUs(Context ctx, Uri uri) {
+        MediaExtractor ex = new MediaExtractor();
+        AssetFileDescriptor afd = null;
+        try {
+            afd = ctx.getContentResolver().openAssetFileDescriptor(uri, "r");
+            if (afd == null) return 0;
+            if (afd.getLength() >= 0)
+                ex.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+            else
+                ex.setDataSource(afd.getFileDescriptor());
+            for (int i = 0; i < ex.getTrackCount(); i++) {
+                MediaFormat f = ex.getTrackFormat(i);
+                String m = f.getString(MediaFormat.KEY_MIME);
+                if (m != null && m.startsWith("audio/")) {
+                    try { return f.getLong(MediaFormat.KEY_DURATION); } catch (Exception e) { return 0; }
+                }
+            }
+        } catch (Exception ignore) {
+        } finally {
+            try { ex.release(); } catch (Exception ignore) {}
+            try { if (afd != null) afd.close(); } catch (Exception ignore) {}
+        }
+        return 0;
+    }
+
     private AudioDecoder() {}
 }

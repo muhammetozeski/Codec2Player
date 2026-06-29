@@ -468,10 +468,25 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     }
 
     private void showConvertDialog(final ArrayList<Uri> uris) {
-        final String[] labels = {"3200 — en kaliteli (en büyük)", "1300 — dengeli", "700C — küçük", "450 — en küçük"};
+        new Thread(() -> {
+            long us = 0;
+            for (Uri u : uris) us += AudioDecoder.durationUs(MainActivity.this, u);
+            final int sec = (int) (us / 1000000L);
+            post(() -> showConvertDialogReady(uris, sec));
+        }, "dur").start();
+    }
+
+    private void showConvertDialogReady(final ArrayList<Uri> uris, int totalSec) {
         final int[] modes = {0, 4, 8, 10};
+        final int[] bps = {3200, 1300, 700, 450};
+        final String[] base = {"3200 — en kaliteli", "1300 — dengeli", "700C — küçük", "450 — en küçük"};
+        String[] labels = new String[4];
+        for (int i = 0; i < 4; i++) {
+            int kb = (int) ((long) bps[i] * totalSec / 8 / 1024);
+            labels[i] = base[i] + (totalSec > 0 ? "   (~" + kb + " KB)" : "");
+        }
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle(uris.size() + " dosya · C2 modu (boyut ↔ kalite)")
+                .setTitle(uris.size() + " dosya · " + fmt(totalSec) + " · C2 modu")
                 .setItems(labels, (d, w) -> convertAll(uris, modes[w]))
                 .show();
     }
