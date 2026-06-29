@@ -1,19 +1,20 @@
 package com.codec2.player;
 
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
+import android.content.ServiceConnection;
 import android.database.Cursor;
-import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
@@ -27,31 +28,16 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
-import java.util.Random;
 
-public class MainActivity extends Activity implements PlayerEngine.Listener {
+public class MainActivity extends Activity implements PlaybackService.Callback {
 
     private static final int REQ_FILES = 11;
     private static final int REQ_FOLDER = 12;
-    private static final int FALLBACK_MODE = Codec2.MODE_1300; // basliksiz ham dosya icin
     private static final int HZ = 8000;
 
-    static final class Item {
-        String uri, name;
-        int mode = -1, durSec = -1;
-    }
-
-    private final ArrayList<Item> playlist = new ArrayList<>();
-    private int current = -1;
-    private boolean shuffle = false, repeat = false;
-    private final Random rnd = new Random(1234);
-
-    private PlayerEngine engine;
     private final Handler ui = new Handler(Looper.getMainLooper());
-
     private LinearLayout root;
     private WaveformView wave;
     private GlowButton playBtn;
@@ -60,13 +46,25 @@ public class MainActivity extends Activity implements PlayerEngine.Listener {
     private Button shuffleBtn, repeatBtn;
     private Adapter adapter;
 
-    private SharedPreferences prefs;
+    private PlaybackService svc;
+    private boolean bound = false, resumed = false;
+
+    private final ServiceConnection conn = new ServiceConnection() {
+        @Override public void onServiceConnected(ComponentName n, IBinder b) {
+            svc = ((PlaybackService.LocalBinder) b).get();
+            bound = true;
+            svc.setCallback(MainActivity.this);
+            if (resumed) svc.setUiVisible(true);
+            refreshControls();
+            adapter.notifyDataSetChanged();
+        }
+        @Override public void onServiceDisconnected(ComponentName n) { bound = false; svc = null; }
+    };
 
     @Override
     protected void onCreate(Bundle s) {
         super.onCreate(s);
         setContentView(R.layout.activity_main);
-        prefs = getSharedPreferences("c2player", MODE_PRIVATE);
 
         root = (LinearLayout) findViewById(R.id.root);
         wave = (WaveformView) findViewById(R.id.wave);
@@ -82,93 +80,118 @@ public class MainActivity extends Activity implements PlayerEngine.Listener {
         for (int id : new int[]{R.id.prev, R.id.next, R.id.shuffle, R.id.repeat, R.id.addFiles, R.id.addFolder})
             styleButton((Button) findViewById(id));
 
-        engine = new PlayerEngine(this);
-
         adapter = new Adapter();
         list.setAdapter(adapter);
-        list.setOnItemClickListener((p, v, pos, idv) -> playIndex(pos));
+        list.setOnItemClickListener((p, v, pos, idv) -> { if (svc != null) svc.playIndex(pos); });
 
-        playBtn.setOnClickListener(v -> { if (current < 0 && !playlist.isEmpty()) playIndex(0); else engine.toggle(); });
-        findViewById(R.id.prev).setOnClickListener(v -> playIndex(neighbor(-1)));
-        findViewById(R.id.next).setOnClickListener(v -> playIndex(neighbor(+1)));
-        shuffleBtn.setOnClickListener(v -> { shuffle = !shuffle; shuffleBtn.setText("Karistir: " + (shuffle ? "Acik" : "Kapali")); });
-        repeatBtn.setOnClickListener(v -> { repeat = !repeat; repeatBtn.setText("Tekrar: " + (repeat ? "Acik" : "Kapali")); });
+        playBtn.setOnClickListener(v -> { if (svc != null) svc.toggle(); });
+        findViewById(R.id.prev).setOnClickListener(v -> { if (svc != null) svc.playIndex(svc.neighbor(-1)); });
+        findViewById(R.id.next).setOnClickListener(v -> { if (svc != null) svc.playIndex(svc.neighbor(+1)); });
+        shuffleBtn.setOnClickListener(v -> { if (svc != null) { svc.setShuffle(!svc.isShuffle()); refreshControls(); } });
+        repeatBtn.setOnClickListener(v -> { if (svc != null) { svc.setRepeat(!svc.isRepeat()); refreshControls(); } });
         findViewById(R.id.addFiles).setOnClickListener(v -> pickFiles());
         findViewById(R.id.addFolder).setOnClickListener(v -> pickFolder());
-
-        wave.setSeekListener(f -> engine.seekFraction(f));
-
-        loadPlaylist();
-        adapter.notifyDataSetChanged();
+        wave.setSeekListener(f -> { if (svc != null) svc.seekFraction(f); });
     }
 
-    // ---------------- oynatma ----------------
-
-    private int neighbor(int dir) {
-        if (playlist.isEmpty()) return -1;
-        if (shuffle) return rnd.nextInt(playlist.size());
-        if (current < 0) return 0;
-        int n = current + dir;
-        if (n < 0) n = playlist.size() - 1;
-        if (n >= playlist.size()) n = 0;
-        return n;
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Intent i = new Intent(this, PlaybackService.class);
+        startService(i);
+        bindService(i, conn, Context.BIND_AUTO_CREATE);
     }
 
-    private void playIndex(final int idx) {
-        if (idx < 0 || idx >= playlist.size()) return;
-        current = idx;
-        final Item it = playlist.get(idx);
-        nowPlaying.setText("Cozuluyor... " + it.name);
-        adapter.notifyDataSetChanged();
-
-        new Thread(() -> {
-            byte[] bytes;
-            try { bytes = readAll(Uri.parse(it.uri)); }
-            catch (Exception e) { post(() -> nowPlaying.setText("Okunamadi: " + it.name)); return; }
-            final Decoder.Result r = Decoder.decode(bytes, FALLBACK_MODE);
-            if (r == null || r.pcm == null) { post(() -> nowPlaying.setText("Cozulemedi: " + it.name)); return; }
-            final float[] pk = Decoder.peaks(r.pcm, 420);
-            it.mode = r.mode;
-            it.durSec = r.pcm.length / HZ;
-            post(() -> {
-                engine.setTrack(r.pcm);
-                wave.setPeaks(pk);
-                nowPlaying.setText(it.name + "   |   " + modeLabel(r.mode) + "   |   " + fmt(it.durSec));
-                total.setText(fmt(it.durSec));
-                adapter.notifyDataSetChanged();
-                engine.play();
-            });
-        }, "decode").start();
+    @Override
+    protected void onResume() {
+        super.onResume();
+        resumed = true;
+        if (bound && svc != null) svc.setUiVisible(true);
+        ui.post(ticker);
     }
 
-    @Override public void onProgress(int pos, int tot) { /* UI ticker poluyor */ }
+    @Override
+    protected void onPause() {
+        super.onPause();
+        resumed = false;
+        ui.removeCallbacks(ticker);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (bound && svc != null) {
+            svc.setUiVisible(false);
+            svc.setCallback(null);
+            unbindService(conn);
+            bound = false;
+        }
+        del(getCacheDir()); del(getCodeCacheDir());
+    }
+
+    // ---------- Service.Callback ----------
+
+    @Override public void onTrackChanged(int index) { post(() -> { refreshNowPlaying(); loadWaveform(); adapter.notifyDataSetChanged(); }); }
     @Override public void onStateChanged(boolean playing) { post(() -> playBtn.setPlaying(playing)); }
-    @Override public void onCompleted() {
-        post(() -> {
-            if (repeat) { engine.seekFraction(0f); engine.play(); }
-            else playIndex(neighbor(+1));
-        });
+    @Override public void onPlaylistChanged() { post(() -> { adapter.notifyDataSetChanged(); refreshNowPlaying(); }); }
+
+    private void refreshControls() {
+        if (svc == null) return;
+        shuffleBtn.setText("Karistir: " + (svc.isShuffle() ? "Acik" : "Kapali"));
+        repeatBtn.setText("Tekrar: " + (svc.isRepeat() ? "Acik" : "Kapali"));
+        playBtn.setPlaying(svc.isPlaying());
+        refreshNowPlaying();
     }
 
-    // ---------------- UI ticker ----------------
+    private void refreshNowPlaying() {
+        if (svc == null) return;
+        int c = svc.getCurrent();
+        ArrayList<Item> pl = svc.getPlaylist();
+        if (c >= 0 && c < pl.size()) {
+            Item it = pl.get(c);
+            String t = it.name;
+            if (it.mode >= 0) t += "   |   " + modeLabel(it.mode);
+            if (it.durSec >= 0) t += "   |   " + fmt(it.durSec);
+            nowPlaying.setText(t);
+        } else {
+            nowPlaying.setText(pl.isEmpty() ? "Bir dosya sec ya da ekle" : "Hazir");
+        }
+    }
+
+    private float[] pendingPeaks;
+    private void loadWaveform() {
+        if (svc == null) return;
+        // dalga formunu mevcut parcadan cikar (arka plan thread)
+        final int c = svc.getCurrent();
+        final ArrayList<Item> pl = svc.getPlaylist();
+        if (c < 0 || c >= pl.size()) { wave.setPeaks(new float[0]); return; }
+        final Uri uri = Uri.parse(pl.get(c).uri);
+        new Thread(() -> {
+            try {
+                byte[] data = readAll(uri);
+                Decoder.Result r = Decoder.decode(data, Codec2.MODE_1300);
+                final float[] pk = (r != null && r.pcm != null) ? Decoder.peaks(r.pcm, 420) : new float[0];
+                post(() -> wave.setPeaks(pk));
+            } catch (Exception ignore) {}
+        }, "wave").start();
+    }
 
     private final Runnable ticker = new Runnable() {
         @Override public void run() {
-            int pos = engine.positionSamples(), tot = engine.totalSamples();
-            wave.setProgress(tot > 0 ? pos / (float) tot : 0f);
-            wave.setLevel(engine.level() / 32768f);
-            wave.invalidate();
-            elapsed.setText(fmt(pos / HZ));
-            if (tot > 0) total.setText(fmt(tot / HZ));
-            playBtn.setPlaying(engine.isPlaying());
+            if (svc != null) {
+                int pos = svc.positionSamples(), tot = svc.totalSamples();
+                wave.setProgress(tot > 0 ? pos / (float) tot : 0f);
+                wave.setLevel(svc.level() / 32768f);
+                wave.invalidate();
+                elapsed.setText(fmt(pos / HZ));
+                if (tot > 0) total.setText(fmt(tot / HZ));
+                playBtn.setPlaying(svc.isPlaying());
+            }
             ui.postDelayed(this, 40);
         }
     };
 
-    @Override protected void onResume() { super.onResume(); ui.post(ticker); }
-    @Override protected void onPause() { super.onPause(); ui.removeCallbacks(ticker); }
-
-    // ---------------- dosya/klasor ekleme ----------------
+    // ---------- dosya/klasor ----------
 
     private void pickFiles() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -188,45 +211,32 @@ public class MainActivity extends Activity implements PlayerEngine.Listener {
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
-        if (res != RESULT_OK || data == null) return;
+        if (res != RESULT_OK || data == null || svc == null) return;
 
         if (req == REQ_FILES) {
+            ArrayList<Item> items = new ArrayList<>();
             ArrayList<Uri> uris = new ArrayList<>();
-            if (data.getClipData() != null) {
+            if (data.getClipData() != null)
                 for (int k = 0; k < data.getClipData().getItemCount(); k++)
                     uris.add(data.getClipData().getItemAt(k).getUri());
-            } else if (data.getData() != null) {
-                uris.add(data.getData());
-            }
-            int added = 0;
-            for (Uri u : uris) {
-                persist(u);
-                Item it = new Item(); it.uri = u.toString(); it.name = queryName(u);
-                playlist.add(it); added++;
-            }
-            savePlaylist();
-            adapter.notifyDataSetChanged();
-            toast(added + " dosya eklendi");
+            else if (data.getData() != null) uris.add(data.getData());
+            for (Uri u : uris) { persist(u); items.add(new Item(u.toString(), queryName(u))); }
+            svc.addItems(items);
+            toast(items.size() + " dosya eklendi");
 
         } else if (req == REQ_FOLDER) {
             final Uri tree = data.getData();
             persist(tree);
             nowPlaying.setText("Klasor taraniyor...");
             new Thread(() -> {
-                final List<Item> found = scanTree(tree);
-                post(() -> {
-                    playlist.addAll(found);
-                    savePlaylist();
-                    adapter.notifyDataSetChanged();
-                    toast(found.size() + " c2 dosyasi bulundu");
-                    nowPlaying.setText(found.isEmpty() ? "Klasorde c2 yok" : "Hazir");
-                });
+                final ArrayList<Item> found = scanTree(tree);
+                post(() -> { svc.addItems(found); toast(found.size() + " c2 bulundu"); refreshNowPlaying(); });
             }, "scan").start();
         }
     }
 
-    private List<Item> scanTree(Uri tree) {
-        List<Item> out = new ArrayList<>();
+    private ArrayList<Item> scanTree(Uri tree) {
+        ArrayList<Item> out = new ArrayList<>();
         ContentResolver cr = getContentResolver();
         String root = DocumentsContract.getTreeDocumentId(tree);
         Deque<String> stack = new ArrayDeque<>();
@@ -243,12 +253,10 @@ public class MainActivity extends Activity implements PlayerEngine.Listener {
                         DocumentsContract.Document.COLUMN_MIME_TYPE}, null, null, null);
                 while (c != null && c.moveToNext()) {
                     String id = c.getString(0), name = c.getString(1), mime = c.getString(2);
-                    if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) {
-                        stack.push(id);
-                    } else if (name != null && name.toLowerCase().endsWith(".c2")) {
+                    if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) stack.push(id);
+                    else if (name != null && name.toLowerCase().endsWith(".c2")) {
                         Uri du = DocumentsContract.buildDocumentUriUsingTree(tree, id);
-                        Item it = new Item(); it.uri = du.toString(); it.name = name;
-                        out.add(it);
+                        out.add(new Item(du.toString(), name));
                     }
                 }
             } catch (Exception ignore) {
@@ -266,10 +274,7 @@ public class MainActivity extends Activity implements PlayerEngine.Listener {
         Cursor c = null;
         try {
             c = getContentResolver().query(u, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null);
-            if (c != null && c.moveToFirst()) {
-                String n = c.getString(0);
-                if (n != null) return n;
-            }
+            if (c != null && c.moveToFirst()) { String n = c.getString(0); if (n != null) return n; }
         } catch (Exception ignore) { } finally { if (c != null) c.close(); }
         String last = u.getLastPathSegment();
         return last != null ? last : u.toString();
@@ -287,32 +292,11 @@ public class MainActivity extends Activity implements PlayerEngine.Listener {
         } finally { in.close(); }
     }
 
-    // ---------------- kalicilik ----------------
-
-    private void savePlaylist() {
-        StringBuilder sb = new StringBuilder();
-        for (Item it : playlist) sb.append(it.uri).append('\t').append(it.name).append('\n');
-        prefs.edit().putString("list", sb.toString()).apply();
-    }
-
-    private void loadPlaylist() {
-        String s = prefs.getString("list", "");
-        if (s.isEmpty()) return;
-        for (String line : s.split("\n")) {
-            if (line.isEmpty()) continue;
-            int t = line.indexOf('\t');
-            Item it = new Item();
-            if (t > 0) { it.uri = line.substring(0, t); it.name = line.substring(t + 1); }
-            else { it.uri = line; it.name = line; }
-            playlist.add(it);
-        }
-    }
-
-    // ---------------- liste adaptoru ----------------
+    // ---------- liste ----------
 
     private final class Adapter extends BaseAdapter {
-        @Override public int getCount() { return playlist.size(); }
-        @Override public Object getItem(int p) { return playlist.get(p); }
+        @Override public int getCount() { return svc == null ? 0 : svc.getPlaylist().size(); }
+        @Override public Object getItem(int p) { return svc.getPlaylist().get(p); }
         @Override public long getItemId(int p) { return p; }
 
         @Override
@@ -324,24 +308,20 @@ public class MainActivity extends Activity implements PlayerEngine.Listener {
                 row.setOrientation(LinearLayout.VERTICAL);
                 int pad = dp(12);
                 row.setPadding(pad, dp(10), pad, dp(10));
-                TextView t1 = new TextView(MainActivity.this);
-                t1.setId(android.R.id.text1);
-                t1.setTextSize(15);
-                t1.setSingleLine(true);
-                TextView t2 = new TextView(MainActivity.this);
-                t2.setId(android.R.id.text2);
-                t2.setTextSize(12);
-                t2.setTextColor(0xFF8597AD);
-                row.addView(t1);
-                row.addView(t2);
+                TextView t1 = new TextView(MainActivity.this); t1.setId(android.R.id.text1);
+                t1.setTextSize(15); t1.setSingleLine(true);
+                TextView t2 = new TextView(MainActivity.this); t2.setId(android.R.id.text2);
+                t2.setTextSize(12); t2.setTextColor(0xFF8597AD);
+                row.addView(t1); row.addView(t2);
             }
-            Item it = playlist.get(p);
+            ArrayList<Item> pl = svc.getPlaylist();
+            Item it = pl.get(p);
+            boolean cur = (p == svc.getCurrent());
             TextView t1 = (TextView) row.findViewById(android.R.id.text1);
             TextView t2 = (TextView) row.findViewById(android.R.id.text2);
-            boolean cur = (p == current);
             t1.setText((cur ? ">  " : "") + it.name);
             t1.setTextColor(cur ? 0xFF8FE3FF : 0xFFE6EEF8);
-            String sub = (p + 1) + " / " + playlist.size();
+            String sub = (p + 1) + " / " + pl.size();
             if (it.mode >= 0) sub += "   |   " + modeLabel(it.mode);
             if (it.durSec >= 0) sub += "   |   " + fmt(it.durSec);
             t2.setText(sub);
@@ -350,7 +330,7 @@ public class MainActivity extends Activity implements PlayerEngine.Listener {
         }
     }
 
-    // ---------------- gorsel ----------------
+    // ---------- gorsel ----------
 
     private void startBackgroundAnimation() {
         final GradientDrawable g = new GradientDrawable(
@@ -362,9 +342,7 @@ public class MainActivity extends Activity implements PlayerEngine.Listener {
         va.setRepeatMode(android.animation.ValueAnimator.REVERSE);
         va.addUpdateListener(a -> {
             float f = (float) a.getAnimatedValue();
-            int c1 = blend(0xFF0B1118, 0xFF132034, f);
-            int c2 = blend(0xFF161226, 0xFF0E2233, f);
-            g.setColors(new int[]{c1, c2, 0xFF0A0F16});
+            g.setColors(new int[]{ blend(0xFF0B1118, 0xFF132034, f), blend(0xFF161226, 0xFF0E2233, f), 0xFF0A0F16 });
         });
         va.start();
     }
@@ -385,8 +363,7 @@ public class MainActivity extends Activity implements PlayerEngine.Listener {
     private static int blend(int a, int b, float t) {
         int ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
         int br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
-        int r = (int) (ar + (br - ar) * t), gg = (int) (ag + (bg - ag) * t), bl = (int) (ab + (bb - ab) * t);
-        return 0xFF000000 | (r << 16) | (gg << 8) | bl;
+        return 0xFF000000 | ((int)(ar+(br-ar)*t) << 16) | ((int)(ag+(bg-ag)*t) << 8) | (int)(ab+(bb-ab)*t);
     }
 
     private static String modeLabel(int mode) {
@@ -407,18 +384,6 @@ public class MainActivity extends Activity implements PlayerEngine.Listener {
     private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
     private void post(Runnable r) { ui.post(r); }
     private void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_SHORT).show(); }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        del(getCacheDir()); del(getCodeCacheDir());
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (engine != null) engine.release();
-    }
 
     private static void del(java.io.File f) {
         if (f == null) return;
