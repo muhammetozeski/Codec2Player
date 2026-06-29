@@ -237,15 +237,16 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     @Override
     protected void onStart() {
         super.onStart();
-        Intent i = new Intent(this, PlaybackService.class);
-        startService(i);
-        bindService(i, conn, Context.BIND_AUTO_CREATE);
+        // bindService arka planda da izinli; startService DEGIL (API 26+ background'da coker)
+        bindService(new Intent(this, PlaybackService.class), conn, Context.BIND_AUTO_CREATE);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         resumed = true;
+        // on planda oldugumuzdan emin -> startService burada guvenli (servisi kalici yap)
+        try { startService(new Intent(this, PlaybackService.class)); } catch (Exception ignore) {}
         if (bound && svc != null) svc.setUiVisible(true);
         ui.post(ticker);
     }
@@ -621,7 +622,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                     } catch (Exception ignore) {}
                     if (any && (i % 6 == 0)) post(() -> { adapter.notifyDataSetChanged(); updateListHeader(); });
                 }
-                post(() -> { adapter.notifyDataSetChanged(); updateListHeader(); });
+                post(() -> { adapter.notifyDataSetChanged(); updateListHeader(); if (svc != null) svc.persist(); });
             } finally { scanning = false; }
         }, "dur-scan").start();
     }
