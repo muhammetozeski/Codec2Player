@@ -87,6 +87,11 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         emptyHint.setText(R.string.empty_hint);
         list.setEmptyView(emptyHint);
         nowPlaying.setSelected(true);   // uzun ad icin marquee kaysin
+        setupTitleShimmer();
+        android.graphics.drawable.GradientDrawable wavePanel = new android.graphics.drawable.GradientDrawable();
+        wavePanel.setColor(0x09FFFFFF);
+        wavePanel.setCornerRadius(dp(14));
+        wave.setBackground(wavePanel);
 
         startBackgroundAnimation();
         for (int id : new int[]{R.id.prev, R.id.next, R.id.settings, R.id.addFiles, R.id.addFolder, R.id.convert})
@@ -778,6 +783,31 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
     }
 
     // ---------- gorsel ----------
+
+    private void setupTitleShimmer() {
+        final TextView title = (TextView) findViewById(R.id.title);
+        title.post(() -> {
+            float w = title.getPaint().measureText(title.getText().toString());
+            if (w <= 1) w = title.getWidth();
+            if (w <= 1) return;
+            final float tw = w;
+            final android.graphics.LinearGradient lg = new android.graphics.LinearGradient(
+                    0, 0, tw, 0,
+                    new int[]{0xFFEAF2FF, 0xFFFFFFFF, 0xFF9FD8FF, 0xFFEAF2FF},
+                    new float[]{0f, 0.45f, 0.6f, 1f}, android.graphics.Shader.TileMode.CLAMP);
+            title.getPaint().setShader(lg);
+            final android.graphics.Matrix m = new android.graphics.Matrix();
+            android.animation.ValueAnimator a = android.animation.ValueAnimator.ofFloat(-tw, tw * 2f);
+            a.setDuration(3000);
+            a.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+            a.addUpdateListener(v -> {
+                m.setTranslate((float) v.getAnimatedValue(), 0);
+                lg.setLocalMatrix(m);
+                title.invalidate();
+            });
+            a.start();
+        });
+    }
 
     private void startBackgroundAnimation() {
         final GradientDrawable g = new GradientDrawable(
