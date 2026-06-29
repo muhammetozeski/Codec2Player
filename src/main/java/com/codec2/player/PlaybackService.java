@@ -76,6 +76,8 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         engine.setSpeed(prefs.getFloat("speed", 1f));
         engine.setGainMb(prefs.getInt("gainMb", 0));
         loadPlaylist();
+        int ri = prefs.getInt("curIdx", -1);
+        if (ri >= 0 && ri < playlist.size()) prepareResume(ri, prefs.getInt("curPos", 0));
         createChannel();
         setupSession();
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
@@ -200,16 +202,41 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
 
     public void play() {
         if (current < 0 && !playlist.isEmpty()) { playIndex(0); return; }
+        if (engine.totalSamples() == 0 && current >= 0) { playIndex(current); return; }
         engine.play();
     }
 
-    public void pause() { engine.pause(); }
+    public void pause() { engine.pause(); saveResume(); }
+
+    private void saveResume() {
+        prefs.edit().putInt("curIdx", current).putInt("curPos", engine.positionSamples()).apply();
+    }
+
+    private void prepareResume(final int idx, final int posSamples) {
+        current = idx;
+        final Item it = playlist.get(idx);
+        new Thread(new Runnable() {
+            @Override public void run() {
+                byte[] bytes;
+                try { bytes = readAll(Uri.parse(it.uri)); } catch (Exception e) { return; }
+                Decoder.Result r = Decoder.decode(bytes, Codec2.MODE_1300);
+                if (r == null || r.pcm == null) return;
+                it.mode = r.mode;
+                it.durSec = r.pcm.length / HZ;
+                engine.setTrack(r.pcm);
+                int tot = engine.totalSamples();
+                if (tot > 0 && posSamples > 0 && posSamples < tot) engine.seekFraction(posSamples / (float) tot);
+                if (cb != null) cb.onTrackChanged(idx);
+            }
+        }, "resume").start();
+    }
 
     public void seekFraction(float f) { engine.seekFraction(f); updatePlaybackState(); }
 
     public void playIndex(final int idx) {
         if (idx < 0 || idx >= playlist.size()) return;
         current = idx;
+        prefs.edit().putInt("curIdx", idx).apply();
         final Item it = playlist.get(idx);
         if (cb != null) cb.onTrackChanged(idx);
         new Thread(new Runnable() {
@@ -411,6 +438,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        saveResume();
         releaseWake();
         sleepH.removeCallbacks(sleepR);
         try { if (noisy != null) unregisterReceiver(noisy); } catch (Exception ignore) {}

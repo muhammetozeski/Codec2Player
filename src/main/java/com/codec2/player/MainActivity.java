@@ -60,6 +60,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             if (resumed) svc.setUiVisible(true);
             refreshControls();
             adapter.notifyDataSetChanged();
+            if (svc.getCurrent() >= 0) loadWaveform();
             processPendingOpen();
             scanDurations();
         }
