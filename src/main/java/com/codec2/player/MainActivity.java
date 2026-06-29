@@ -168,7 +168,8 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         if (pos < 0 || pos >= pl.size()) return;
         final Item it = pl.get(pos);
         final int size = pl.size();
-        final String[] opts = {"Buradan oynat", "Yukarı taşı", "Aşağı taşı", "Başa al", "Sona al", "WAV olarak paylaş", "Bilgi"};
+        final String[] opts = {"Buradan oynat", "Yukarı taşı", "Aşağı taşı", "Başa al", "Sona al",
+                "C2 olarak paylaş", "WAV olarak paylaş", "Bilgi"};
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle(it.name)
                 .setItems(opts, (d, w) -> {
@@ -178,11 +179,38 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                         case 2: svc.moveItem(pos, Math.min(size - 1, pos + 1)); break;
                         case 3: svc.moveItem(pos, 0); break;
                         case 4: svc.moveItem(pos, size - 1); break;
-                        case 5: shareAsWav(it); break;
-                        case 6: showInfo(it); break;
+                        case 5: shareAsC2(it); break;
+                        case 6: shareAsWav(it); break;
+                        case 7: showInfo(it); break;
                     }
                 })
                 .show();
+    }
+
+    private void shareAsC2(final Item it) {
+        new Thread(() -> {
+            try {
+                byte[] data = readAll(Uri.parse(it.uri));
+                java.io.File dir = new java.io.File(getFilesDir(), "share");
+                dir.mkdirs();
+                java.io.File[] old = dir.listFiles();
+                if (old != null) for (java.io.File f : old) f.delete();
+                String nm = (it.name == null || it.name.isEmpty()) ? "ses.c2" : it.name;
+                if (!nm.toLowerCase().endsWith(".c2")) nm = nm + ".c2";
+                final java.io.File out = new java.io.File(dir, nm);
+                java.io.FileOutputStream fos = new java.io.FileOutputStream(out);
+                fos.write(data); fos.close();
+                final Uri share = new Uri.Builder().scheme("content")
+                        .authority(ShareProvider.AUTHORITY).appendPath(out.getName()).build();
+                post(() -> {
+                    Intent send = new Intent(Intent.ACTION_SEND);
+                    send.setType("application/octet-stream");
+                    send.putExtra(Intent.EXTRA_STREAM, share);
+                    send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(send, "C2 paylaş"));
+                });
+            } catch (Exception e) { post(() -> toast("Hata: " + e.getMessage())); }
+        }).start();
     }
 
     private void shareAsWav(final Item it) {
@@ -716,10 +744,13 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                 col.setPadding(pad, dp(8), pad, dp(8));
                 TextView t1 = new TextView(MainActivity.this); t1.setId(android.R.id.text1);
                 t1.setTextSize(15); t1.setSingleLine(true);
+                t1.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                t1.setLayoutParams(new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
                 TextView t2 = new TextView(MainActivity.this); t2.setId(android.R.id.text2);
                 t2.setTextSize(12); t2.setTextColor(0xFF8597AD);
                 col.addView(t1); col.addView(t2);
-                row.addView(col);
+                row.addView(col, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             }
             ArrayList<Item> pl = svc.getPlaylist();
             Item it = pl.get(p);
