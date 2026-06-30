@@ -217,7 +217,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     public void play() {
         if (current < 0 && !playlist.isEmpty()) { playIndex(0); return; }
         if (audioMode) {
-            if (mp != null) { try { mp.start(); } catch (Throwable e) {} mpStateChanged(true); }
+            if (mp != null) { try { mp.start(); } catch (Throwable e) {} mpStateChanged(safeMpPlaying()); }
             else if (current >= 0) playIndex(current);
         } else {
             if (engine.totalSamples() == 0 && current >= 0) { playIndex(current); return; }
