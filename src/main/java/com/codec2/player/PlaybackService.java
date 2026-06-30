@@ -196,6 +196,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         stopPlayback();
         playlist.clear();
         current = -1;
+        prefs.edit().putInt("curIdx", -1).putInt("curPos", 0).apply();   // resume durumunu da temizle
         savePlaylist();
         if (cb != null) cb.onPlaylistChanged();
     }
