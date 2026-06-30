@@ -20,6 +20,7 @@
                                     kurulu boyut sismez.
     -->
     <application
+        android:name=".App"
         android:debuggable="true"
         android:allowBackup="false"
         android:hardwareAccelerated="false"

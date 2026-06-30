@@ -131,6 +131,46 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         wave.setSeekListener(f -> { if (svc != null) svc.seekFraction(f); });
 
         handleOpenIntent(getIntent());
+        showCrashIfAny();
+    }
+
+    /** Onceki acilista yakalanan cokme raporu varsa kullaniciya goster (sessiz cokme yok). */
+    private void showCrashIfAny() {
+        final java.io.File f = new java.io.File(getFilesDir(), App.CRASH_FILE);
+        if (!f.exists()) return;
+        String txt;
+        try {
+            java.io.FileInputStream in = new java.io.FileInputStream(f);
+            java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+            byte[] b = new byte[4096]; int n;
+            while ((n = in.read(b)) > 0) bo.write(b, 0, n);
+            in.close();
+            txt = new String(bo.toByteArray(), "UTF-8");
+        } catch (Exception e) { f.delete(); return; }
+        final String report = txt;
+
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        TextView tv = new TextView(this);
+        tv.setText(report);
+        tv.setTextIsSelectable(true);
+        tv.setTextColor(0xFFE6EEF8);
+        tv.setTextSize(12);
+        tv.setTypeface(android.graphics.Typeface.MONOSPACE);
+        int pad = dp(16);
+        tv.setPadding(pad, pad, pad, pad);
+        sv.addView(tv);
+
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(R.string.crash_title)
+                .setView(sv)
+                .setPositiveButton(R.string.ok, null)
+                .setNeutralButton(R.string.crash_share, (d, w) -> {
+                    Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain");
+                    send.putExtra(Intent.EXTRA_TEXT, report);
+                    startActivity(Intent.createChooser(send, getString(R.string.crash_share)));
+                })
+                .setOnDismissListener(d -> f.delete())
+                .show();
     }
 
     @Override

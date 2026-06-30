@@ -85,6 +85,10 @@
     <string name="read_failed">Okunamadı: %1$s</string>
     <string name="error_msg">Hata: %1$s</string>
 
+    <string name="crash_title">Uygulama geçen sefer çöktü</string>
+    <string name="crash_share">Raporu paylaş</string>
+    <string name="play_failed">Çalınamadı: %1$s</string>
+
     <string name="notif_prev">Önceki</string>
     <string name="notif_play">Oynat</string>
     <string name="notif_pause">Duraklat</string>

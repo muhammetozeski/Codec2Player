@@ -94,6 +94,11 @@
     <string name="read_failed">Could not read: %1$s</string>
     <string name="error_msg">Error: %1$s</string>
 
+    <!-- crash report -->
+    <string name="crash_title">The app crashed last time</string>
+    <string name="crash_share">Share report</string>
+    <string name="play_failed">Could not play: %1$s</string>
+
     <!-- notification -->
     <string name="notif_prev">Previous</string>
     <string name="notif_play">Play</string>
