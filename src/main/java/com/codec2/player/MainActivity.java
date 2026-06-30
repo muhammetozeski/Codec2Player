@@ -391,7 +391,12 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         });
     }
     @Override public void onPlaylistChanged() { post(() -> { adapter.notifyDataSetChanged(); refreshNowPlaying(); updateListHeader(); scanDurations(); }); }
-    @Override public void onError(String msg) { post(() -> toast(msg)); }
+    @Override public void onError(String msg) {
+        post(() -> {                       // hem toast hem kalici (nowPlaying'de) goster -> dosya acilamadi net belli olsun
+            toast(msg);
+            if (nowPlaying != null) { nowPlaying.setText(msg); nowPlaying.setAlpha(1f); }
+        });
+    }
 
     private void refreshControls() {
         if (svc == null) return;
