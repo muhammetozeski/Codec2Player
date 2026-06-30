@@ -41,6 +41,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         void onTrackChanged(int index);
         void onStateChanged(boolean playing);
         void onPlaylistChanged();
+        void onError(String msg);
     }
 
     public final class LocalBinder extends Binder {
@@ -66,6 +67,13 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     private PowerManager.WakeLock wake;
     private SharedPreferences prefs;
 
+    // Normal ses dosyalari (mp3/ogg/m4a/wav...) STREAMING olarak MediaPlayer ile calar
+    // (bellege tum dosyayi almaz -> uzun sarkilarda OOM yok). codec2 .c2 -> PlayerEngine.
+    private android.media.MediaPlayer mp;
+    private boolean audioMode = false;
+    private float mpSpeed = 1f;
+    private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(LocaleHelper.wrap(base));
@@ -79,6 +87,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         shuffle = prefs.getBoolean("shuffle", false);
         repeatMode = prefs.getInt("repeatMode", 0);
         engine.setSpeed(prefs.getFloat("speed", 1f));
+        mpSpeed = prefs.getFloat("speed", 1f);
         engine.setGainDb(prefs.getFloat("gainDb", 0f));
         loadPlaylist();
         int ri = prefs.getInt("curIdx", -1);
@@ -117,10 +126,11 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     public void setCallback(Callback c) { cb = c; }
     public ArrayList<Item> getPlaylist() { return playlist; }
     public int getCurrent() { return current; }
-    public boolean isPlaying() { return engine.isPlaying(); }
-    public int positionSamples() { return engine.positionSamples(); }
-    public int totalSamples() { return engine.totalSamples(); }
-    public int level() { return engine.level(); }
+    public boolean isPlaying() { return audioMode ? safeMpPlaying() : engine.isPlaying(); }
+    public int positionSamples() { return audioMode ? safeMpPos() : engine.positionSamples(); }
+    public int totalSamples() { return audioMode ? safeMpDur() : engine.totalSamples(); }
+    public int sampleRate() { return audioMode ? 1000 : engine.sampleRate(); }   // ses icin pos/total milisaniye
+    public int level() { return audioMode ? 0 : engine.level(); }
     public boolean isShuffle() { return shuffle; }
     public int getRepeatMode() { return repeatMode; }
 
@@ -135,6 +145,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         for (int i = 0; i < sp.length; i++) if (Math.abs(sp[i] - cur) < 0.01f) { idx = i; break; }
         float ns = sp[(idx + 1) % sp.length];
         engine.setSpeed(ns);
+        mpSpeed = ns; applyMpSpeed();
         prefs.edit().putFloat("speed", ns).apply();
     }
 
@@ -191,7 +202,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         uiVisible = v;
         if (v) {
             stopForeground(true);          // on planda: bildirim yok
-        } else if (engine.isPlaying()) {
+        } else if (isPlaying()) {
             startForeground(NID, buildNotification());  // arka planda calarken: bildirim
         } else {
             stopForeground(true);
@@ -199,49 +210,32 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         }
     }
 
-    public void toggle() { if (engine.isPlaying()) pause(); else play(); }
+    public void toggle() { if (isPlaying()) pause(); else play(); }
 
     public void play() {
         if (current < 0 && !playlist.isEmpty()) { playIndex(0); return; }
-        if (engine.totalSamples() == 0 && current >= 0) { playIndex(current); return; }
-        engine.play();
+        if (audioMode) {
+            if (mp != null) { try { mp.start(); } catch (Throwable e) {} mpStateChanged(true); }
+            else if (current >= 0) playIndex(current);
+        } else {
+            if (engine.totalSamples() == 0 && current >= 0) { playIndex(current); return; }
+            engine.play();
+        }
     }
 
-    public void pause() { engine.pause(); saveResume(); }
+    public void pause() {
+        if (audioMode) { if (mp != null) { try { mp.pause(); } catch (Throwable e) {} } mpStateChanged(false); }
+        else engine.pause();
+        saveResume();
+    }
 
     private void saveResume() {
-        prefs.edit().putInt("curIdx", current).putInt("curPos", engine.positionSamples()).apply();
+        prefs.edit().putInt("curIdx", current).putInt("curPos", positionSamples()).apply();
     }
 
     private void prepareResume(final int idx, final int posSamples) {
         current = idx;
-        final Item it = playlist.get(idx);
-        new Thread(new Runnable() {
-            @Override public void run() {
-                byte[] bytes;
-                try { bytes = readAll(Uri.parse(it.uri)); } catch (Exception e) { return; }
-                Decoder.Result r = Decoder.decode(bytes, Codec2.MODE_1300);
-                if (r == null || r.pcm == null) return;
-                it.mode = r.mode;
-                it.durSec = r.pcm.length / HZ;
-                engine.setTrack(r.pcm);
-                int tot = engine.totalSamples();
-                if (tot > 0 && posSamples > 0 && posSamples < tot) engine.seekFraction(posSamples / (float) tot);
-                if (cb != null) cb.onTrackChanged(idx);
-            }
-        }, "resume").start();
-    }
-
-    public void seekFraction(float f) { engine.seekFraction(f); updatePlaybackState(); }
-
-    public void seekRelative(int seconds) {
-        int tot = engine.totalSamples();
-        if (tot <= 0) return;
-        int np = engine.positionSamples() + seconds * HZ;
-        if (np < 0) np = 0;
-        if (np >= tot) np = tot - 1;
-        engine.seekFraction(np / (float) tot);
-        updatePlaybackState();
+        loadAndPlay(playlist.get(idx), posSamples, false);   // resume: yukle + konuma git, otomatik calma
     }
 
     public void playIndex(final int idx) {
@@ -250,23 +244,143 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         prefs.edit().putInt("curIdx", idx).apply();
         final Item it = playlist.get(idx);
         if (cb != null) cb.onTrackChanged(idx);
+        loadAndPlay(it, 0, true);
+    }
+
+    /** Item'i turune gore yukler: .c2 basligi -> codec2 (PlayerEngine, tam PCM, kucuk);
+     *  diger ses -> MediaPlayer (STREAMING, belleğe almaz -> her uzunlukta OOM yok).
+     *  resumePos: codec2 icin ornek sayisi, ses icin milisaniye. */
+    private void loadAndPlay(final Item it, final int resumePos, final boolean autoplay) {
         new Thread(new Runnable() {
             @Override public void run() {
-                byte[] bytes;
-                try { bytes = readAll(Uri.parse(it.uri)); } catch (Exception e) { return; }
-                final Decoder.Result r = Decoder.decode(bytes, Codec2.MODE_1300);
-                if (r == null || r.pcm == null) return;
-                it.mode = r.mode;
-                it.durSec = r.pcm.length / HZ;
-                engine.setTrack(r.pcm);
-                engine.play();
-                postNotificationAndState();
-                if (cb != null) cb.onPlaylistChanged();
+                boolean isC2;
+                try { isC2 = Codec2.headerMode(readHead(Uri.parse(it.uri), Codec2.HEADER_SIZE)) >= 0; }
+                catch (Throwable e) { isC2 = false; }
+                if (isC2) {
+                    try {
+                        byte[] bytes = readAll(Uri.parse(it.uri));
+                        final Decoder.Result r = Decoder.decode(bytes, Codec2.MODE_1300);
+                        if (r == null || r.pcm == null) throw new Exception("codec2 cozulemedi");
+                        main.post(new Runnable() { @Override public void run() {
+                            releaseMp(); audioMode = false;
+                            it.mode = r.mode; it.durSec = r.pcm.length / HZ;
+                            engine.setTrack(r.pcm, HZ);
+                            if (resumePos > 0 && resumePos < r.pcm.length) engine.seekFraction(resumePos / (float) r.pcm.length);
+                            if (autoplay) engine.play();
+                            postNotificationAndState();
+                            if (cb != null) cb.onPlaylistChanged();
+                        }});
+                    } catch (Throwable e) { reportError(it, e); }
+                } else {
+                    main.post(new Runnable() { @Override public void run() { startAudio(it, resumePos, autoplay); } });
+                }
             }
-        }, "svc-decode").start();
+        }, "svc-load").start();
+    }
+
+    /** Normal ses dosyasini MediaPlayer ile STREAMING calar (mp3/ogg/m4a/wav/flac...). */
+    private void startAudio(final Item it, final int seekMs, final boolean autoplay) {
+        releaseMp();
+        audioMode = true;
+        engine.pause();
+        try {
+            mp = new android.media.MediaPlayer();
+            mp.setAudioStreamType(android.media.AudioManager.STREAM_MUSIC);
+            mp.setOnPreparedListener(new android.media.MediaPlayer.OnPreparedListener() {
+                @Override public void onPrepared(android.media.MediaPlayer p) {
+                    it.mode = Item.MODE_AUDIO;
+                    int d = safeMpDur();
+                    if (d > 0) it.durSec = d / 1000;
+                    if (seekMs > 0 && (d <= 0 || seekMs < d)) { try { p.seekTo(seekMs); } catch (Throwable e) {} }
+                    applyMpSpeed();
+                    if (autoplay) { try { p.start(); } catch (Throwable e) {} }
+                    mpStateChanged(safeMpPlaying());
+                    if (cb != null) cb.onPlaylistChanged();
+                }
+            });
+            mp.setOnCompletionListener(new android.media.MediaPlayer.OnCompletionListener() {
+                @Override public void onCompletion(android.media.MediaPlayer p) { mpStateChanged(false); onCompleted(); }
+            });
+            mp.setOnErrorListener(new android.media.MediaPlayer.OnErrorListener() {
+                @Override public boolean onError(android.media.MediaPlayer p, int what, int extra) {
+                    reportError(it, new Exception("MediaPlayer hata " + what + "/" + extra)); return true;
+                }
+            });
+            mp.setDataSource(this, Uri.parse(it.uri));
+            mp.prepareAsync();
+        } catch (Throwable e) { reportError(it, e); }
+    }
+
+    private void applyMpSpeed() {
+        if (mp == null || Build.VERSION.SDK_INT < 23) return;
+        try {
+            boolean wasPlaying = safeMpPlaying();
+            mp.setPlaybackParams(mp.getPlaybackParams().setSpeed(mpSpeed <= 0 ? 1f : mpSpeed));
+            if (!wasPlaying && safeMpPlaying()) mp.pause();   // setPlaybackParams calistirmis olabilir
+        } catch (Throwable ignore) {}
+    }
+
+    private void mpStateChanged(boolean playing) {
+        if (playing) acquireWake(); else releaseWake();
+        postNotificationAndState();
+        if (cb != null) cb.onStateChanged(playing);
+    }
+
+    private void releaseMp() {
+        if (mp != null) {
+            try { mp.reset(); } catch (Throwable ignore) {}
+            try { mp.release(); } catch (Throwable ignore) {}
+            mp = null;
+        }
+    }
+
+    private void reportError(final Item it, final Throwable e) {
+        try { Log2.add("Çalma hatası: " + it.name + " -> " + e); } catch (Throwable ignore) {}
+        main.post(new Runnable() { @Override public void run() {
+            if (cb != null) cb.onError(getString(R.string.play_failed, it.name));
+        }});
+    }
+
+    private boolean safeMpPlaying() { try { return mp != null && mp.isPlaying(); } catch (Throwable e) { return false; } }
+    private int safeMpPos() { try { return mp != null ? mp.getCurrentPosition() : 0; } catch (Throwable e) { return 0; } }
+    private int safeMpDur() { try { int d = mp != null ? mp.getDuration() : 0; return d > 0 ? d : 0; } catch (Throwable e) { return 0; } }
+
+    private byte[] readHead(Uri uri, int n) throws Exception {
+        InputStream in = getContentResolver().openInputStream(uri);
+        if (in == null) throw new Exception("akis yok");
+        try {
+            byte[] b = new byte[n];
+            int off = 0, r;
+            while (off < n && (r = in.read(b, off, n - off)) > 0) off += r;
+            if (off == n) return b;
+            byte[] s = new byte[off]; System.arraycopy(b, 0, s, 0, off); return s;
+        } finally { in.close(); }
+    }
+
+    public void seekFraction(float f) {
+        if (audioMode) { int d = safeMpDur(); if (d > 0) { try { mp.seekTo((int) (f * d)); } catch (Throwable e) {} } }
+        else engine.seekFraction(f);
+        updatePlaybackState();
+    }
+
+    public void seekRelative(int seconds) {
+        if (audioMode) {
+            int d = safeMpDur(); if (d <= 0) return;
+            int np = safeMpPos() + seconds * 1000;
+            if (np < 0) np = 0; if (np >= d) np = d - 1;
+            try { mp.seekTo(np); } catch (Throwable e) {}
+        } else {
+            int tot = engine.totalSamples();
+            if (tot <= 0) return;
+            int np = engine.positionSamples() + seconds * engine.sampleRate();
+            if (np < 0) np = 0; if (np >= tot) np = tot - 1;
+            engine.seekFraction(np / (float) tot);
+        }
+        updatePlaybackState();
     }
 
     public void stopPlayback() {
+        if (mp != null) { try { mp.pause(); } catch (Throwable e) {} }
         engine.pause();
         releaseWake();
         stopForeground(true);
@@ -296,12 +410,20 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
 
     @Override
     public void onCompleted() {
-        if (repeatMode == 2) { engine.seekFraction(0f); engine.play(); return; }
+        if (repeatMode == 2) {                              // tekli tekrar
+            if (audioMode) { if (mp != null) { try { mp.seekTo(0); mp.start(); } catch (Throwable e) {} } mpStateChanged(true); }
+            else { engine.seekFraction(0f); engine.play(); }
+            return;
+        }
         if (shuffle) { playIndex(rnd.nextInt(Math.max(1, playlist.size()))); return; }
         int n = current + 1;
         if (n >= playlist.size()) {
-            if (repeatMode == 1) n = 0;     // tumu: basa don
-            else { engine.pause(); return; } // kapali: liste sonunda dur
+            if (repeatMode == 1) n = 0;                     // tumu: basa don
+            else {                                          // kapali: liste sonunda dur
+                if (audioMode) { if (mp != null) { try { mp.pause(); } catch (Throwable e) {} } mpStateChanged(false); }
+                else engine.pause();
+                return;
+            }
         }
         playIndex(n);
     }
@@ -311,7 +433,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     private void postNotificationAndState() {
         updatePlaybackState();
         if (!uiVisible) {
-            if (engine.isPlaying()) startForeground(NID, buildNotification());
+            if (isPlaying()) startForeground(NID, buildNotification());
             else {
                 NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
                 stopForeground(false);
@@ -338,8 +460,8 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
             @Override public void onSkipToPrevious() { playIndex(neighbor(-1)); }
             @Override public void onStop() { stopPlayback(); }
             @Override public void onSeekTo(long ms) {
-                int tot = engine.totalSamples();
-                if (tot > 0) engine.seekFraction((ms / 1000f * HZ) / tot);
+                if (audioMode) { if (mp != null) { try { mp.seekTo((int) ms); } catch (Throwable e) {} } updatePlaybackState(); }
+                else { int tot = engine.totalSamples(); if (tot > 0) engine.seekFraction((ms / 1000f * engine.sampleRate()) / tot); }
             }
         });
         session.setActive(true);
@@ -347,14 +469,14 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
 
     private void updatePlaybackState() {
         if (session == null) return;
-        long pos = engine.positionSamples() * 1000L / HZ;
-        int st = engine.isPlaying() ? PlaybackState.STATE_PLAYING : PlaybackState.STATE_PAUSED;
+        long pos = engine.positionSamples() * 1000L / engine.sampleRate();
+        int st = isPlaying() ? PlaybackState.STATE_PLAYING : PlaybackState.STATE_PAUSED;
         PlaybackState ps = new PlaybackState.Builder()
                 .setActions(PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE
                         | PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_SKIP_TO_NEXT
                         | PlaybackState.ACTION_SKIP_TO_PREVIOUS | PlaybackState.ACTION_SEEK_TO
                         | PlaybackState.ACTION_STOP)
-                .setState(st, pos, engine.isPlaying() ? 1f : 0f)
+                .setState(st, pos, isPlaying() ? 1f : 0f)
                 .build();
         session.setPlaybackState(ps);
     }
@@ -368,7 +490,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
 
     private Notification buildNotification() {
         String title = (current >= 0 && current < playlist.size()) ? playlist.get(current).name : "Codec2";
-        boolean playing = engine.isPlaying();
+        boolean playing = isPlaying();
 
         Intent open = new Intent(this, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         int fl = PendingIntent.FLAG_UPDATE_CURRENT;
@@ -401,7 +523,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     }
 
     private void stopSelfIfIdle() {
-        if (!engine.isPlaying() && !uiVisible) stopSelf();
+        if (!isPlaying() && !uiVisible) stopSelf();
     }
 
     private void acquireWake() { try { if (wake != null && !wake.isHeld()) wake.acquire(); } catch (Exception ignore) {} }
@@ -463,6 +585,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         sleepH.removeCallbacks(sleepR);
         try { if (noisy != null) unregisterReceiver(noisy); } catch (Exception ignore) {}
         if (session != null) session.release();
+        releaseMp();
         if (engine != null) engine.release();
     }
 }

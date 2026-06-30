@@ -391,6 +391,7 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         });
     }
     @Override public void onPlaylistChanged() { post(() -> { adapter.notifyDataSetChanged(); refreshNowPlaying(); updateListHeader(); scanDurations(); }); }
+    @Override public void onError(String msg) { post(() -> toast(msg)); }
 
     private void refreshControls() {
         if (svc == null) return;
@@ -463,11 +464,17 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
         final Uri uri = Uri.parse(pl.get(c).uri);
         new Thread(() -> {
             try {
-                byte[] data = readAll(uri);
-                Decoder.Result r = Decoder.decode(data, Codec2.MODE_1300);
-                final float[] pk = (r != null && r.pcm != null) ? Decoder.peaks(r.pcm, 420) : new float[0];
-                post(() -> wave.setPeaks(pk));
-            } catch (Exception ignore) {}
+                byte[] head = readHead(uri, Codec2.HEADER_SIZE);
+                float[] pk;
+                if (Codec2.headerMode(head) >= 0) {                 // codec2 .c2 (kucuk; tam coz)
+                    Decoder.Result r = Decoder.decode(readAll(uri), Codec2.MODE_1300);
+                    pk = (r != null && r.pcm != null) ? Decoder.peaks(r.pcm, 420) : new float[0];
+                } else {                                            // normal ses streaming caliyor; tam cozme YOK (OOM riski)
+                    pk = new float[0];
+                }
+                final float[] fpk = pk;
+                post(() -> wave.setPeaks(fpk));
+            } catch (Throwable ignore) {}
         }, "wave").start();
     }
 
@@ -481,8 +488,9 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                 wave.setLevel(lvl);
                 wave.invalidate();
                 playBtn.setProgress(frac);
-                elapsed.setText(fmt(pos / HZ));
-                if (tot > 0) total.setText(fmt(tot / HZ));
+                int sr = svc.sampleRate();
+                elapsed.setText(fmt(pos / sr));
+                if (tot > 0) total.setText(fmt(tot / sr));
                 playBtn.setPlaying(svc.isPlaying());
             }
             ui.postDelayed(this, 40);
@@ -737,14 +745,20 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                 boolean any = false;
                 for (int i = 0; i < pl.size(); i++) {
                     Item it = pl.get(i);
-                    if (it.durSec >= 0) continue;
+                    if (it.durSec >= 0 && it.mode != -1) continue;   // mode -1 = tur henuz belli degil, yeniden tara
                     try {
                         Uri u = Uri.parse(it.uri);
                         byte[] head = readHead(u, 7);
-                        int d = Decoder.quickDuration(head, querySize(u));
-                        if (d >= 0) { it.durSec = d; any = true; }
                         int hm = Codec2.headerMode(head);
-                        if (hm >= 0 && it.mode < 0) { it.mode = hm; any = true; }
+                        if (hm >= 0) {                                  // codec2 .c2
+                            int d = Decoder.quickDuration(head, querySize(u));
+                            if (d >= 0) { it.durSec = d; any = true; }
+                            if (it.mode < 0) { it.mode = hm; any = true; }
+                        } else {                                        // normal ses
+                            long us = AudioDecoder.durationUs(MainActivity.this, u);
+                            if (us > 0) { it.durSec = (int) (us / 1000000L); any = true; }
+                            if (it.mode != Item.MODE_AUDIO) { it.mode = Item.MODE_AUDIO; any = true; }
+                        }
                     } catch (Exception ignore) {}
                     if (any && (i % 6 == 0)) post(() -> { adapter.notifyDataSetChanged(); updateListHeader(); });
                 }
@@ -821,6 +835,11 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
                 int s = sub.length();
                 sub.append(modeLabel(it.mode));
                 sub.setSpan(new android.text.style.ForegroundColorSpan(modeColor(it.mode)), s, sub.length(), 0);
+            } else if (it.mode == Item.MODE_AUDIO) {
+                sub.append("   ·   ");
+                int s = sub.length();
+                sub.append(audioLabel(nm));
+                sub.setSpan(new android.text.style.ForegroundColorSpan(0xFF9FD8B0), s, sub.length(), 0);
             }
             if (it.durSec >= 0) { sub.append("   ·   "); sub.append(fmt(it.durSec)); }
             t2.setText(sub);
@@ -928,6 +947,18 @@ public class MainActivity extends Activity implements PlaybackService.Callback {
             case 8: return "700C"; case 10: return "450";
             default: return "mod " + mode;
         }
+    }
+
+    /** Normal ses dosyasi icin etiket: uzantinin buyuk hali (MP3/OGG/...), yoksa AUDIO. */
+    private static String audioLabel(String name) {
+        if (name != null) {
+            int dot = name.lastIndexOf('.');
+            if (dot >= 0 && dot < name.length() - 1) {
+                String ext = name.substring(dot + 1).toUpperCase();
+                if (ext.length() >= 1 && ext.length() <= 5) return ext;
+            }
+        }
+        return "AUDIO";
     }
 
     private static String fmt(int sec) {

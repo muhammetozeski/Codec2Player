@@ -12,13 +12,21 @@ import java.nio.ByteBuffer;
 
 /**
  * Herhangi bir ses dosyasini (mp3/aac/m4a/opus/ogg/wav/flac...) cihazin KENDI
- * codec'leriyle (MediaExtractor + MediaCodec; harici kutuphane yok) PCM'e cozer,
- * 8 kHz mono'ya indirir. codec2 encode girisi icin.
+ * codec'leriyle (MediaExtractor + MediaCodec; harici kutuphane yok) PCM'e cozer.
+ * - decodeMono       : MONO, dosyanin DOGAL ornekleme hizi (oynatma icin)
+ * - decodeTo8kMono   : 8 kHz mono (codec2 encode girisi icin)
  */
 public final class AudioDecoder {
 
-    /** @return 8 kHz mono 16-bit PCM; hata olursa Exception. */
-    public static short[] decodeTo8kMono(Context ctx, Uri uri) throws Exception {
+    /** Cozulmus mono PCM + ornekleme hizi. */
+    public static final class Pcm {
+        public final short[] data;
+        public final int rate;
+        public Pcm(short[] data, int rate) { this.data = data; this.rate = rate; }
+    }
+
+    /** Dosyayi MONO PCM'e cozer, dogal ornekleme hizinda. Hata olursa Exception. */
+    public static Pcm decodeMono(Context ctx, Uri uri) throws Exception {
         MediaExtractor ex = new MediaExtractor();
         AssetFileDescriptor afd = ctx.getContentResolver().openAssetFileDescriptor(uri, "r");
         if (afd == null) throw new Exception("dosya acilamadi");
@@ -88,10 +96,10 @@ public final class AudioDecoder {
 
             byte[] raw = pcm.toByteArray();
             int n = raw.length / 2;
-            // 16-bit LE -> short, kanal ortalamasiyla mono
             if (channels < 1) channels = 1;
             int frames = n / channels;
             short[] mono = new short[frames];
+            // 16-bit LE -> short, kanal ortalamasiyla mono
             for (int i = 0; i < frames; i++) {
                 int sum = 0;
                 for (int c = 0; c < channels; c++) {
@@ -100,24 +108,35 @@ public final class AudioDecoder {
                 }
                 mono[i] = (short) (sum / channels);
             }
-            if (srcRate == 8000) return mono;
-
-            // dogrusal yeniden orneklemeyle 8 kHz
-            int outLen = (int) ((long) frames * 8000L / srcRate);
-            short[] out = new short[outLen];
-            double ratio = (double) srcRate / 8000.0;
-            for (int i = 0; i < outLen; i++) {
-                double sp = i * ratio;
-                int i0 = (int) sp;
-                int i1 = Math.min(i0 + 1, frames - 1);
-                double fr = sp - i0;
-                out[i] = (short) (mono[i0] * (1 - fr) + mono[i1] * fr);
-            }
-            return out;
+            if (srcRate <= 0) srcRate = 8000;
+            return new Pcm(mono, srcRate);
         } finally {
             try { ex.release(); } catch (Exception ignore) {}
             try { afd.close(); } catch (Exception ignore) {}
         }
+    }
+
+    /** @return 8 kHz mono 16-bit PCM (codec2 encode icin). */
+    public static short[] decodeTo8kMono(Context ctx, Uri uri) throws Exception {
+        Pcm p = decodeMono(ctx, uri);
+        if (p.rate == 8000) return p.data;
+        int frames = p.data.length;
+        int outLen = (int) ((long) frames * 8000L / p.rate);
+        short[] out = new short[outLen];
+        double ratio = (double) p.rate / 8000.0;
+        for (int i = 0; i < outLen; i++) {
+            double sp = i * ratio;
+            int i0 = (int) sp;
+            int i1 = Math.min(i0 + 1, frames - 1);
+            double fr = sp - i0;
+            out[i] = (short) (p.data[i0] * (1 - fr) + p.data[i1] * fr);
+        }
+        return out;
+    }
+
+    /** Oynatma icin: mono, dogal ornekleme hizinda. */
+    public static Pcm decodeForPlayback(Context ctx, Uri uri) throws Exception {
+        return decodeMono(ctx, uri);
     }
 
     /** Sure (mikrosaniye), cozmeden (MediaExtractor format'indan). Bulunamazsa 0. */

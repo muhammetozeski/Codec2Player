@@ -34,20 +34,29 @@ public final class PlayerEngine {
     private volatile float gainFactor = 1f;
     private final short[] gbuf = new short[CHUNK];
     private AudioTrack track;
+    private int hz = HZ;          // mevcut parcanin ornekleme hizi
     private Thread thread;
 
     public PlayerEngine(Listener l) {
         this.listener = l;
-        int min = AudioTrack.getMinBufferSize(HZ,
-                AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
-        int bufSize = Math.max(min, CHUNK * 2 * 4);
-        track = new AudioTrack(AudioManager.STREAM_MUSIC, HZ,
-                AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
-                bufSize, AudioTrack.MODE_STREAM);
+        track = buildTrack(hz);
         thread = new Thread(new Runnable() {
             @Override public void run() { loop(); }
         }, "c2-playback");
         thread.start();
+    }
+
+    private AudioTrack buildTrack(int rate) {
+        int min = AudioTrack.getMinBufferSize(rate,
+                AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        int bufSize = Math.max(min, CHUNK * 2 * 4);
+        AudioTrack t = new AudioTrack(AudioManager.STREAM_MUSIC, rate,
+                AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
+                bufSize, AudioTrack.MODE_STREAM);
+        if (Build.VERSION.SDK_INT >= 23 && speed != 1f) {
+            try { t.setPlaybackParams(new PlaybackParams().setSpeed(speed)); } catch (Exception ignore) {}
+        }
+        return t;
     }
 
     private void loop() {
@@ -88,15 +97,23 @@ public final class PlayerEngine {
         }
     }
 
-    public void setTrack(short[] newPcm) {
-        boolean wasPlaying = playing;
+    public void setTrack(short[] newPcm) { setTrack(newPcm, HZ); }
+
+    /** Yeni parca + ornekleme hizi. Hiz degisirse AudioTrack yeniden olusur. */
+    public void setTrack(short[] newPcm, int rate) {
+        if (rate <= 0) rate = HZ;
         playing = false;
         sleep(30);
         flush();
+        if (rate != hz) {
+            try { track.stop(); } catch (Throwable ignore) {}
+            try { track.release(); } catch (Throwable ignore) {}
+            hz = rate;
+            track = buildTrack(hz);
+        }
         pcm = (newPcm != null) ? newPcm : new short[0];
         total = pcm.length;
         pos = 0;
-        if (wasPlaying) { /* yeni parca otomatik baslamasin; cagiran karar verir */ }
         notifyProgress();
     }
 
@@ -121,7 +138,7 @@ public final class PlayerEngine {
     public int positionSamples() { return pos; }
     public int totalSamples() { return total; }
     public int level() { return level; }
-    public int sampleRate() { return HZ; }
+    public int sampleRate() { return hz; }
     public float getSpeed() { return speed; }
 
     public void setSpeed(float s) {
