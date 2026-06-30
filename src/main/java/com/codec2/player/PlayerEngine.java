@@ -36,6 +36,8 @@ public final class PlayerEngine {
     private AudioTrack track;
     private int hz = HZ;          // mevcut parcanin ornekleme hizi
     private Thread thread;
+    // bitis/durum geri cagrilari ANA THREAD'e marshal edilir (playlist/bildirim main'de degisir; veri yarisi yok)
+    private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
 
     public PlayerEngine(Listener l) {
         this.listener = l;
@@ -67,7 +69,7 @@ public final class PlayerEngine {
                 if (playing && pos >= total) {
                     playing = false;
                     notifyState();
-                    if (listener != null) listener.onCompleted();
+                    if (listener != null) main.post(new Runnable() { @Override public void run() { listener.onCompleted(); } });
                 }
                 continue;
             }
@@ -183,7 +185,8 @@ public final class PlayerEngine {
     }
 
     private void notifyState() {
-        if (listener != null) listener.onStateChanged(playing);
+        final boolean p = playing;
+        if (listener != null) main.post(new Runnable() { @Override public void run() { listener.onStateChanged(p); } });
     }
     private void notifyProgress() {
         if (listener != null) listener.onProgress(pos, total);
