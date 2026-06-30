@@ -252,7 +252,10 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     /** Item'i turune gore yukler: .c2 basligi -> codec2 (PlayerEngine, tam PCM, kucuk);
      *  diger ses -> MediaPlayer (STREAMING, belleğe almaz -> her uzunlukta OOM yok).
      *  resumePos: codec2 icin ornek sayisi, ses icin milisaniye. */
+    private int loadSeq = 0;   // yalniz ANA THREAD'de erisilir (playIndex/onCompleted/prepareResume main'de)
+
     private void loadAndPlay(final Item it, final int resumePos, final boolean autoplay) {
+        final int seq = ++loadSeq;
         new Thread(new Runnable() {
             @Override public void run() {
                 boolean isC2;
@@ -264,6 +267,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
                         final Decoder.Result r = Decoder.decode(bytes, Codec2.MODE_1300);
                         if (r == null || r.pcm == null) throw new Exception("codec2 cozulemedi");
                         main.post(new Runnable() { @Override public void run() {
+                            if (seq != loadSeq) return;    // bayat: daha yeni bir yukleme istegi var
                             releaseMp(); audioMode = false;
                             it.mode = r.mode; it.durSec = r.pcm.length / HZ;
                             engine.setTrack(r.pcm, HZ);
@@ -274,7 +278,10 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
                         }});
                     } catch (Throwable e) { reportError(it, e); }
                 } else {
-                    main.post(new Runnable() { @Override public void run() { startAudio(it, resumePos, autoplay); } });
+                    main.post(new Runnable() { @Override public void run() {
+                        if (seq != loadSeq) return;        // bayat: daha yeni bir yukleme istegi var
+                        startAudio(it, resumePos, autoplay);
+                    }});
                 }
             }
         }, "svc-load").start();
