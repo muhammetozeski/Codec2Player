@@ -31,6 +31,9 @@ No third-party libraries (no AndroidX, no Kotlin, no Material) — just core `an
 - **Sleep timer** (15/30/60 min)
 - **Resume** where you left off (track + position persisted)
 - Mode is **auto-detected** from the file header (3200…450); colour-coded badges
+- **Plays normal audio too** — `mp3` / `ogg` / `m4a` / `aac` / `wav` / `flac` via the device's own
+  `MediaPlayer` (true streaming, any length); `.c2` files use the built-in codec2 decoder. Routed by
+  file header, so a huge song never gets force-decoded into RAM. Handy to A/B a track against its codec2 version.
 
 **Background & notification**
 - Foreground **Service** + MediaSession (lock screen / headset buttons)
