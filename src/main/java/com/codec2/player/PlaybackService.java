@@ -462,8 +462,9 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
             @Override public void onSkipToPrevious() { playIndex(neighbor(-1)); }
             @Override public void onStop() { stopPlayback(); }
             @Override public void onSeekTo(long ms) {
-                if (audioMode) { if (mp != null) { try { mp.seekTo((int) ms); } catch (Throwable e) {} } updatePlaybackState(); }
+                if (audioMode) { if (mp != null) { try { mp.seekTo((int) ms); } catch (Throwable e) {} } }
                 else { int tot = engine.totalSamples(); if (tot > 0) engine.seekFraction((ms / 1000f * engine.sampleRate()) / tot); }
+                updatePlaybackState();
             }
         });
         session.setActive(true);
@@ -471,7 +472,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
 
     private void updatePlaybackState() {
         if (session == null) return;
-        long pos = engine.positionSamples() * 1000L / engine.sampleRate();
+        long pos = audioMode ? safeMpPos() : engine.positionSamples() * 1000L / engine.sampleRate();
         int st = isPlaying() ? PlaybackState.STATE_PLAYING : PlaybackState.STATE_PAUSED;
         PlaybackState ps = new PlaybackState.Builder()
                 .setActions(PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE
