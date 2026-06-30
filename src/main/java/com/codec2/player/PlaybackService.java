@@ -73,6 +73,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
     private boolean audioMode = false;
     private float mpSpeed = 1f;
     private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final TestHooks testHooks = new TestHooks();   // SADECE test; TestHooks.ON=false ile kapanir
 
     @Override
     protected void attachBaseContext(Context base) {
@@ -103,6 +104,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         };
         registerReceiver(noisy, new android.content.IntentFilter(
                 android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY));
+        testHooks.install(this);
     }
 
     @Override public IBinder onBind(Intent i) { return binder; }
@@ -584,6 +586,7 @@ public class PlaybackService extends Service implements PlayerEngine.Listener {
         releaseWake();
         sleepH.removeCallbacks(sleepR);
         try { if (noisy != null) unregisterReceiver(noisy); } catch (Exception ignore) {}
+        testHooks.uninstall(this);
         if (session != null) session.release();
         releaseMp();
         if (engine != null) engine.release();
